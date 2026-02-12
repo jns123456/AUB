@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Manos - Board {{ board_actual }} - {{ torneo.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">
+            <i class="bi bi-card-list"></i> Manos Jugadas
+        </h2>
+        <small class="text-muted">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'torneo_ver_resultados' id=torneo.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Resultados
+        </a>
+    </div>
+</div>
+
+<!-- Selector de Board -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="fw-bold me-2">Seleccionar Board:</span>
+            {% for board in boards_disponibles %}
+                <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=board %}" 
+                   class="btn btn-sm {% if board == board_actual %}btn-bridge{% else %}btn-outline-secondary{% endif %}">
+                    {{ board }}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Detalle del Board -->
+<div class="card shadow-sm">
+    <div class="card-header bg-bridge text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-suit-spade-fill"></i>
+            Board {{ board_actual }}
+        </h5>
+        <div>
+            {% if board_actual > boards_disponibles.0 %}
+                {% with prev_idx=board_actual|add:-1 %}
+                    {% for b in boards_disponibles %}
+                        {% if b == prev_idx or b < board_actual and forloop.last %}
+                            <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-sm btn-light">
+                                <i class="bi bi-chevron-left"></i> Board {{ b }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+            {% endif %}
+            {% if board_actual < boards_disponibles|last %}
+                {% with next_idx=board_actual|add:1 %}
+                    {% for b in boards_disponibles %}
+                        {% if b == next_idx or b > board_actual and forloop.first %}
+                            <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-sm btn-light">
+                                Board {{ b }} <i class="bi bi-chevron-right"></i>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center" style="width: 60px;">NS</th>
+                        <th class="text-center" style="width: 60px;">EW</th>
+                        <th class="text-center" style="width: 100px;">Contrato</th>
+                        <th class="text-center" style="width: 50px;">Dec</th>
+                        <th class="text-center" style="width: 80px;">NS+</th>
+                        <th class="text-center" style="width: 80px;">NS-</th>
+                        <th class="text-center" style="width: 80px;">MP NS</th>
+                        <th class="text-center" style="width: 80px;">MP EW</th>
+                        <th>Norte-Sur</th>
+                        <th>Este-Oeste</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mano in manos %}
+                    <tr>
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ mano.pareja_ns }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-danger">{{ mano.pareja_ew }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="fw-bold fs-5">
+                                {% with contrato=mano.contrato %}
+                                    {% if "S" in contrato %}
+                                        <span class="text-primary">{{ contrato }}</span>
+                                    {% elif "H" in contrato %}
+                                        <span class="text-danger">{{ contrato }}</span>
+                                    {% elif "D" in contrato %}
+                                        <span class="text-warning">{{ contrato }}</span>
+                                    {% elif "C" in contrato %}
+                                        <span class="text-success">{{ contrato }}</span>
+                                    {% else %}
+                                        {{ contrato }}
+                                    {% endif %}
+                                {% endwith %}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge {% if mano.declarante == 'N' or mano.declarante == 'S' %}bg-primary{% else %}bg-danger{% endif %}">
+                                {{ mano.declarante }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            {% if mano.puntos_ns_positivo %}
+                                <span class="text-success fw-bold">+{{ mano.puntos_ns_positivo }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if mano.puntos_ns_negativo %}
+                                <span class="text-danger fw-bold">-{{ mano.puntos_ns_negativo }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge {% if mano.mp_ns >= mano.mp_ew %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ mano.mp_ns|floatformat:0 }}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge {% if mano.mp_ew >= mano.mp_ns %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ mano.mp_ew|floatformat:0 }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>{{ mano.nombre_pareja_ns|default:"—" }}</small>
+                        </td>
+                        <td>
+                            <small>{{ mano.nombre_pareja_ew|default:"—" }}</small>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            No hay resultados para este board
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-light">
+        <div class="row text-center">
+            <div class="col">
+                <small class="text-muted">
+                    <i class="bi bi-suit-spade-fill text-primary"></i> Picas
+                    <i class="bi bi-suit-heart-fill text-danger ms-2"></i> Corazones
+                    <i class="bi bi-suit-diamond-fill text-warning ms-2"></i> Diamantes
+                    <i class="bi bi-suit-club-fill text-success ms-2"></i> Tréboles
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navegación rápida -->
+<div class="d-flex justify-content-between mt-4">
+    {% with first_board=boards_disponibles.0 last_board=boards_disponibles|last %}
+        {% if board_actual > first_board %}
+            {% for b in boards_disponibles reversed %}
+                {% if b < board_actual %}
+                    <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-outline-primary">
+                        <i class="bi bi-chevron-left"></i> Board {{ b }}
+                    </a>
+                    {% if forloop.first %}{% endif %}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <span></span>
+        {% endif %}
+        
+        {% if board_actual < last_board %}
+            {% for b in boards_disponibles %}
+                {% if b > board_actual %}
+                    <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-outline-primary">
+                        Board {{ b }} <i class="bi bi-chevron-right"></i>
+                    </a>
+                    {% if forloop.first %}{% endif %}
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <span></span>
+        {% endif %}
+    {% endwith %}
+</div>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking {{ anio }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-bar-chart-line"></i> Ranking Anual {{ anio }}</h2>
+        <p class="text-muted mb-0">
+            {{ ranking|length }} jugadores &bull; {{ total_torneos }} torneos disputados
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        {% if anios_disponibles|length > 1 %}
+        <label for="selector-anio" class="form-label mb-0 small fw-bold">Año:</label>
+        <select class="form-select form-select-sm" id="selector-anio" style="width:100px"
+                onchange="window.location.href='/ranking/'+this.value">
+            {% for a in anios_disponibles %}
+            <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+    </div>
+</div>
+
+{% if ranking %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-trophy-fill text-warning"></i> Clasificación General
+        </h5>
+        <input type="text" id="buscar-ranking" class="form-control form-control-sm"
+               placeholder="Buscar jugador..." style="width: 200px;">
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="tabla-ranking">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-center" style="width:50px">Pos.</th>
+                        <th>Jugador</th>
+                        <th class="text-center">Categoría</th>
+                        <th class="text-center">HC</th>
+                        <th class="text-center">Torneos</th>
+                        <th class="text-center fw-bold">Puntos</th>
+                        <th class="text-center" style="width:50px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in ranking %}
+                    <tr class="fila-ranking">
+                        <td class="text-center fw-bold">
+                            {% if forloop.counter == 1 %}
+                                <span class="badge bg-warning text-dark fs-6">1</span>
+                            {% elif forloop.counter == 2 %}
+                                <span class="badge bg-secondary fs-6">2</span>
+                            {% elif forloop.counter == 3 %}
+                                <span class="badge bg-danger fs-6" style="background-color:#cd7f32!important">3</span>
+                            {% else %}
+                                {{ forloop.counter }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-semibold">{{ item.jugador.apellido }}, {{ item.jugador.nombre }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if item.jugador.categoria %}
+                            <span class="badge
+                                {% if item.jugador.categoria == 'GM' or item.jugador.categoria == 'GRAN MAESTRO' or item.jugador.categoria == 'MAESTRO' %}bg-dark
+                                {% elif item.jugador.categoria == 'SUPERIOR' %}bg-primary
+                                {% elif item.jugador.categoria == 'PRIMERA' %}bg-success
+                                {% elif item.jugador.categoria == 'SEGUNDA' %}bg-info text-dark
+                                {% elif item.jugador.categoria == 'TERCERA' %}bg-warning text-dark
+                                {% elif item.jugador.categoria == 'CUARTA' %}bg-secondary
+                                {% else %}bg-light text-dark
+                                {% endif %}
+                            ">{{ item.jugador.categoria }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ item.jugador.handicap }}</td>
+                        <td class="text-center">{{ item.torneos_jugados }}</td>
+                        <td class="text-center">
+                            <span class="fw-bold fs-5 text-bridge">{{ item.puntos_total|floatformat:0 }}</span>
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-detalle-ranking"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#detalle-{{ item.jugador.id }}">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <!-- Detalle colapsable -->
+                    <tr class="collapse detalle-row" id="detalle-{{ item.jugador.id }}">
+                        <td colspan="7" class="bg-light p-0">
+                            <div class="p-3">
+                                <table class="table table-sm table-borderless mb-0 small">
+                                    <thead>
+                                        <tr class="text-muted">
+                                            <th>Fecha</th>
+                                            <th>Torneo</th>
+                                            <th>Tipo</th>
+                                            <th class="text-center">Dir.</th>
+                                            <th class="text-center">Pos.</th>
+                                            <th class="text-center">Pts</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for d in item.detalle %}
+                                        <tr>
+                                            <td>{{ d.fecha|date:"d/m" }}</td>
+                                            <td>{{ d.torneo }}</td>
+                                            <td><span class="badge bg-light text-dark">{{ d.tipo }}</span></td>
+                                            <td class="text-center">
+                                                {% if d.direccion == 'NS' %}
+                                                <span class="badge bg-ns">NS</span>
+                                                {% else %}
+                                                <span class="badge bg-eo">EO</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center">{{ d.posicion }}º</td>
+                                            <td class="text-center fw-bold">{{ d.puntos|floatformat:0 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="border-top">
+                                            <td colspan="5" class="text-end fw-bold">Total:</td>
+                                            <td class="text-center fw-bold text-bridge">{{ item.puntos_total|floatformat:0 }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body text-center p-5 text-muted">
+        <i class="bi bi-bar-chart display-4"></i>
+        <p class="mt-3">No hay resultados registrados para {{ anio }}.</p>
+        <p>Los puntos se acumulan cuando guardás los resultados de cada torneo.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // Búsqueda en ranking
+    const input = document.getElementById('buscar-ranking');
+    if (!input) return;
+
+    input.addEventListener('input', function() {
+        const filtro = this.value.toLowerCase();
+        const filas = document.querySelectorAll('.fila-ranking');
+
+        filas.forEach(fila => {
+            const texto = fila.textContent.toLowerCase();
+            const visible = texto.includes(filtro);
+            fila.style.display = visible ? '' : 'none';
+
+            // Ocultar detalle colapsable asociado
+            const next = fila.nextElementSibling;
+            if (next && next.classList.contains('detalle-row')) {
+                next.style.display = visible ? '' : 'none';
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

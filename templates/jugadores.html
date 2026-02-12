@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+
+{% block title %}Jugadores{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people"></i> Jugadores</h2>
+    {% if jugadores %}
+    <form action="{% url 'jugadores_eliminar_todos' %}" method="POST" class="d-inline"
+          onsubmit="return confirm('¿ELIMINAR TODOS LOS JUGADORES?\n\nEsta acción borrará los {{ jugadores|length }} jugadores de la base de datos y las parejas de todos los torneos.\n\nEsta acción NO se puede deshacer.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-trash3"></i> Eliminar toda la base
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Formulario de nuevo jugador -->
+    <div class="col-lg-3">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-bridge text-white">
+                <h5 class="mb-0"><i class="bi bi-person-plus"></i> Agregar Jugador</h5>
+            </div>
+            <div class="card-body">
+                <form action="{% url 'jugador_nuevo' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apellido" class="form-label">Apellido</label>
+                        <input type="text" class="form-control" id="apellido" name="apellido" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="handicap" class="form-label">Handicap</label>
+                        <input type="number" step="0.1" class="form-control" id="handicap" name="handicap"
+                               value="0" required>
+                        <div class="form-text">-1 = mejor nivel, números más altos = menor nivel.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="puntos" class="form-label">Puntos</label>
+                        <input type="number" step="0.01" class="form-control" id="puntos" name="puntos" value="0">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="cn_totales" class="form-label">CN Totales</label>
+                            <input type="number" class="form-control" id="cn_totales" name="cn_totales" value="0">
+                        </div>
+                        <div class="col-6">
+                            <label for="categoria" class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="categoria" name="categoria" placeholder="Ej: MAESTRO">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-bridge w-100">
+                        <i class="bi bi-plus-circle"></i> Agregar
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Importar CSV -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-upload"></i> Importar desde CSV</h5>
+            </div>
+            <div class="card-body">
+                <form action="{% url 'jugadores_importar' %}" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <input type="file" class="form-control" name="archivo_csv" accept=".csv" required>
+                        <div class="form-text">
+                            Formato: <code>nombre,apellido,handicap</code><br>
+                            Una fila por jugador, sin encabezados.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-upload"></i> Importar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de jugadores -->
+    <div class="col-lg-9">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-ul"></i> Lista de Jugadores
+                    <span class="badge bg-bridge ms-2">{{ jugadores|length }}</span>
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-bridge" id="btn-ranking-aub"
+                            title="Ordenar por Ranking AUB (Categoría + Puntos)">
+                        <i class="bi bi-trophy-fill"></i> Ranking AUB
+                    </button>
+                    <input type="text" id="buscar-jugador" class="form-control form-control-sm"
+                           placeholder="Buscar..." style="width: 200px;">
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if jugadores %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tabla-jugadores">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 45px;">#</th>
+                                <th class="sortable" data-col="1" data-tipo="texto" role="button">
+                                    Nombre <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="sortable" data-col="2" data-tipo="texto" role="button">
+                                    Apellido <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="sortable text-center" data-col="3" data-tipo="numero" role="button">
+                                    HC <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="sortable text-center" data-col="4" data-tipo="numero" role="button">
+                                    Puntos <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="sortable text-center" data-col="5" data-tipo="numero" role="button">
+                                    CN <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="sortable text-center" data-col="6" data-tipo="texto" role="button">
+                                    Categoría <i class="bi bi-arrow-down-up sort-icon text-muted"></i>
+                                </th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for jugador in jugadores %}
+                            <tr class="fila-jugador">
+                                <td class="text-center text-muted rank-num">{{ forloop.counter }}</td>
+                                <td>{{ jugador.nombre }}</td>
+                                <td>{{ jugador.apellido }}</td>
+                                <td class="text-center">
+                                    <span class="badge
+                                        {% if jugador.handicap <= 0 %}bg-danger
+                                        {% elif jugador.handicap <= 3 %}bg-warning text-dark
+                                        {% elif jugador.handicap <= 6 %}bg-info text-dark
+                                        {% else %}bg-secondary
+                                        {% endif %}
+                                        fs-6">
+                                        {{ jugador.handicap }}
+                                    </span>
+                                </td>
+                                <td class="text-center">{{ jugador.puntos|default:0 }}</td>
+                                <td class="text-center">{{ jugador.cn_totales|default:0 }}</td>
+                                <td class="text-center">
+                                    {% if jugador.categoria %}
+                                    <span class="badge
+                                        {% if jugador.categoria == 'GM' or jugador.categoria == 'GRAN MAESTRO' or jugador.categoria == 'MAESTRO' %}bg-dark
+                                        {% elif jugador.categoria == 'SUPERIOR' %}bg-primary
+                                        {% elif jugador.categoria == 'PRIMERA' %}bg-success
+                                        {% elif jugador.categoria == 'SEGUNDA' %}bg-info text-dark
+                                        {% elif jugador.categoria == 'TERCERA' %}bg-warning text-dark
+                                        {% elif jugador.categoria == 'CUARTA' %}bg-secondary
+                                        {% elif jugador.categoria == 'QUINTA' %}bg-cat-quinta
+                                        {% elif jugador.categoria == 'PRINCIPIANTES' or jugador.categoria == 'PRINCIPIANTE' %}bg-cat-principiante
+                                        {% else %}bg-light text-dark
+                                        {% endif %}
+                                        ">{{ jugador.categoria }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-editar-jugador"
+                                            data-id="{{ jugador.id }}"
+                                            data-nombre="{{ jugador.nombre }}"
+                                            data-apellido="{{ jugador.apellido }}"
+                                            data-handicap="{{ jugador.handicap }}"
+                                            data-puntos="{{ jugador.puntos|default:0 }}"
+                                            data-cn="{{ jugador.cn_totales|default:0 }}"
+                                            data-categoria="{{ jugador.categoria|default:'' }}"
+                                            data-url="{% url 'jugador_editar' id=jugador.id %}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form action="{% url 'jugador_eliminar' id=jugador.id %}"
+                                          method="POST" class="d-inline"
+                                          onsubmit="return confirm('¿Eliminar a {{ jugador.nombre_completo }}?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% else %}
+                <div class="text-center p-5 text-muted">
+                    <i class="bi bi-person-x display-4"></i>
+                    <p class="mt-3">No hay jugadores registrados aún.</p>
+                    <p>Agregá jugadores usando el formulario o importá un archivo CSV.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal único de edición -->
+<div class="modal fade" id="editarJugadorModal" tabindex="-1" aria-labelledby="editarJugadorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formEditarJugador" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editarJugadorModalLabel">Editar Jugador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit-nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="edit-nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-apellido" class="form-label">Apellido</label>
+                        <input type="text" class="form-control" id="edit-apellido" name="apellido" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-handicap" class="form-label">Handicap</label>
+                        <input type="number" step="0.1" class="form-control" id="edit-handicap" name="handicap" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-puntos" class="form-label">Puntos</label>
+                        <input type="number" step="0.01" class="form-control" id="edit-puntos" name="puntos">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="edit-cn" class="form-label">CN Totales</label>
+                            <input type="number" class="form-control" id="edit-cn" name="cn_totales">
+                        </div>
+                        <div class="col-6">
+                            <label for="edit-categoria" class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="edit-categoria" name="categoria">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-bridge">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const tabla = document.getElementById('tabla-jugadores');
+    if (!tabla) return;
+
+    const tbody = tabla.querySelector('tbody');
+    const headers = tabla.querySelectorAll('th.sortable');
+    const btnRanking = document.getElementById('btn-ranking-aub');
+    let ordenActual = { col: null, asc: true };
+    let rankingAubActivo = false;
+
+    const CATEGORIA_ORDEN = {
+        'GRAN MAESTRO': 0,
+        'GM': 0,
+        'MAESTRO': 1,
+        'SUPERIOR': 2,
+        'PRIMERA': 3,
+        'SEGUNDA': 4,
+        'TERCERA': 5,
+        'CUARTA': 6,
+        'QUINTA': 7,
+        'PRINCIPIANTES': 8,
+        'PRINCIPIANTE': 8,
+    };
+
+    const COL_RANK     = 0;
+    const COL_NOMBRE   = 1;
+    const COL_APELLIDO = 2;
+    const COL_HC       = 3;
+    const COL_PUNTOS   = 4;
+    const COL_CN       = 5;
+    const COL_CAT      = 6;
+
+    function obtenerFilas() {
+        return Array.from(tbody.querySelectorAll('tr.fila-jugador'));
+    }
+
+    function reinsertarFilas(filas) {
+        filas.forEach(fila => tbody.appendChild(fila));
+    }
+
+    function renumerarFilas() {
+        const filas = Array.from(tbody.querySelectorAll('tr.fila-jugador'));
+        let pos = 0;
+        filas.forEach(fila => {
+            if (fila.style.display !== 'none') {
+                pos++;
+                fila.children[COL_RANK].textContent = pos;
+            }
+        });
+    }
+
+    function resetSortIcons() {
+        headers.forEach(h => {
+            const icon = h.querySelector('.sort-icon');
+            icon.className = 'bi bi-arrow-down-up sort-icon text-muted';
+        });
+    }
+
+    function setRankingActivo(activo) {
+        rankingAubActivo = activo;
+        if (activo) {
+            btnRanking.classList.remove('btn-outline-bridge');
+            btnRanking.classList.add('btn-bridge-active');
+        } else {
+            btnRanking.classList.remove('btn-bridge-active');
+            btnRanking.classList.add('btn-outline-bridge');
+        }
+    }
+
+    btnRanking.addEventListener('click', function() {
+        const filas = obtenerFilas();
+
+        filas.sort((a, b) => {
+            const catA = a.children[COL_CAT].textContent.trim().toUpperCase();
+            const catB = b.children[COL_CAT].textContent.trim().toUpperCase();
+            const ordenA = CATEGORIA_ORDEN[catA] !== undefined ? CATEGORIA_ORDEN[catA] : 99;
+            const ordenB = CATEGORIA_ORDEN[catB] !== undefined ? CATEGORIA_ORDEN[catB] : 99;
+
+            if (ordenA !== ordenB) return ordenA - ordenB;
+
+            const puntosA = parseFloat(a.children[COL_PUNTOS].textContent.trim()) || 0;
+            const puntosB = parseFloat(b.children[COL_PUNTOS].textContent.trim()) || 0;
+            return puntosB - puntosA;
+        });
+
+        reinsertarFilas(filas);
+        renumerarFilas();
+
+        ordenActual = { col: null, asc: true };
+        resetSortIcons();
+        setRankingActivo(true);
+    });
+
+    headers.forEach(th => {
+        th.addEventListener('click', function() {
+            const col = parseInt(this.dataset.col);
+            const tipo = this.dataset.tipo;
+
+            if (ordenActual.col === col) {
+                ordenActual.asc = !ordenActual.asc;
+            } else {
+                ordenActual.col = col;
+                ordenActual.asc = true;
+            }
+
+            const filas = obtenerFilas();
+
+            filas.sort((a, b) => {
+                let valA, valB;
+
+                if (tipo === 'numero') {
+                    valA = parseFloat(a.children[col].textContent.trim()) || 0;
+                    valB = parseFloat(b.children[col].textContent.trim()) || 0;
+                    return ordenActual.asc ? valA - valB : valB - valA;
+                } else {
+                    valA = a.children[col].textContent.trim().toLowerCase();
+                    valB = b.children[col].textContent.trim().toLowerCase();
+                    const cmp = valA.localeCompare(valB, 'es');
+                    return ordenActual.asc ? cmp : -cmp;
+                }
+            });
+
+            reinsertarFilas(filas);
+            renumerarFilas();
+
+            setRankingActivo(false);
+
+            headers.forEach(h => {
+                const icon = h.querySelector('.sort-icon');
+                const c = parseInt(h.dataset.col);
+                if (c === col) {
+                    icon.className = ordenActual.asc
+                        ? 'bi bi-sort-up sort-icon text-bridge'
+                        : 'bi bi-sort-down sort-icon text-bridge';
+                } else {
+                    icon.className = 'bi bi-arrow-down-up sort-icon text-muted';
+                }
+            });
+        });
+    });
+
+    document.getElementById('buscar-jugador').addEventListener('input', function() {
+        const filtro = this.value.toLowerCase();
+        const filas = tbody.querySelectorAll('tr.fila-jugador');
+
+        filas.forEach(fila => {
+            const texto = fila.textContent.toLowerCase();
+            fila.style.display = texto.includes(filtro) ? '' : 'none';
+        });
+
+        renumerarFilas();
+    });
+
+    const modalEditar = document.getElementById('editarJugadorModal');
+    const formEditar = document.getElementById('formEditarJugador');
+
+    if (modalEditar && formEditar) {
+        const bsModal = new bootstrap.Modal(modalEditar);
+
+        const inputNombre = document.getElementById('edit-nombre');
+        const inputApellido = document.getElementById('edit-apellido');
+        const inputHandicap = document.getElementById('edit-handicap');
+        const inputPuntos = document.getElementById('edit-puntos');
+        const inputCn = document.getElementById('edit-cn');
+        const inputCategoria = document.getElementById('edit-categoria');
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-editar-jugador');
+            if (!btn) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            formEditar.action = btn.dataset.url;
+            inputNombre.value = btn.dataset.nombre;
+            inputApellido.value = btn.dataset.apellido;
+            inputHandicap.value = btn.dataset.handicap;
+            inputPuntos.value = btn.dataset.puntos;
+            inputCn.value = btn.dataset.cn;
+            inputCategoria.value = btn.dataset.categoria;
+
+            bsModal.show();
+        });
+    }
+})();
+</script>
+{% endblock %}

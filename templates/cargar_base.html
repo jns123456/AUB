@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Cargar Base de Handicaps{% endblock %}
+
+{% block content %}
+
+{% if not preview %}
+<!-- PASO 1: SUBIR ARCHIVO -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-bridge text-white">
+                <h4 class="mb-0"><i class="bi bi-database-up"></i> Cargar Base de Handicaps</h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-4">
+                    Subí la base de datos histórica con los handicaps de los jugadores.
+                    El sistema detecta automáticamente las columnas y te muestra una vista previa
+                    antes de importar.
+                </p>
+
+                <form action="{% url 'cargar_base' %}" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <!-- Drag & drop area -->
+                    <div class="upload-area p-5 text-center rounded-3 mb-4" id="uploadArea">
+                        <i class="bi bi-cloud-arrow-up display-3 text-bridge"></i>
+                        <h5 class="mt-3">Arrastrá tu archivo acá o hacé clic para seleccionar</h5>
+                        <p class="text-muted mb-3">Formatos aceptados: .csv, .xlsx</p>
+                        <input type="file" class="form-control" name="archivo" id="archivoInput"
+                               accept=".csv,.xlsx,.txt" required style="max-width: 400px; margin: 0 auto;">
+                        <div id="nombreArchivo" class="mt-2 fw-medium text-bridge" style="display:none;"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-bridge btn-lg w-100">
+                        <i class="bi bi-eye"></i> Ver Vista Previa
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Instrucciones del formato -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-question-circle"></i> Formato del archivo</h5>
+            </div>
+            <div class="card-body">
+                <p>El archivo puede tener <strong>2 o 3 columnas</strong>.</p>
+
+                <!-- Tabs for format examples -->
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#formato-combinado">
+                            Columna combinada (Apellido + Nombre)
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#formato-separado">
+                            Columnas separadas
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Formato combinado -->
+                    <div class="tab-pane fade show active" id="formato-combinado">
+                        <div class="alert alert-success small mb-3">
+                            <i class="bi bi-star-fill"></i>
+                            <strong>Formato AUB:</strong> Si tu archivo tiene una columna "Nombre"
+                            con el <strong>apellido primero y el nombre después</strong>, el sistema
+                            los separa automáticamente.
+                        </div>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-file-earmark-spreadsheet"></i> Excel (2 columnas)</h6>
+                                <div class="bg-light p-3 rounded">
+                                    <table class="table table-sm table-bordered mb-0 small">
+                                        <thead>
+                                            <tr class="table-secondary">
+                                                <th>Nombre</th>
+                                                <th>Handicap</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td>Pérez, Juan</td><td>-1</td></tr>
+                                            <tr><td>González María</td><td>3.5</td></tr>
+                                            <tr><td>De Los Santos, Ana</td><td>7</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="small text-muted mt-2">
+                                    Acepta: <code>Apellido, Nombre</code> o <code>Apellido Nombre</code>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-arrow-right"></i> El sistema lo separa así:</h6>
+                                <div class="bg-light p-3 rounded">
+                                    <table class="table table-sm table-bordered mb-0 small">
+                                        <thead>
+                                            <tr class="table-secondary">
+                                                <th>Apellido</th>
+                                                <th>Nombre</th>
+                                                <th>HC</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td>Pérez</td><td>Juan</td><td>-1</td></tr>
+                                            <tr><td>González</td><td>María</td><td>3.5</td></tr>
+                                            <tr><td>De Los Santos</td><td>Ana</td><td>7</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formato separado -->
+                    <div class="tab-pane fade" id="formato-separado">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-filetype-csv"></i> CSV (3 columnas)</h6>
+                                <div class="bg-light p-3 rounded font-monospace small">
+                                    nombre,apellido,handicap<br>
+                                    Juan,Pérez,-1<br>
+                                    María,González,3.5<br>
+                                    Carlos,López,7
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-file-earmark-spreadsheet"></i> Excel (3 columnas)</h6>
+                                <div class="bg-light p-3 rounded">
+                                    <table class="table table-sm table-bordered mb-0 small">
+                                        <thead>
+                                            <tr class="table-secondary">
+                                                <th>Nombre</th>
+                                                <th>Apellido</th>
+                                                <th>Handicap</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td>Juan</td><td>Pérez</td><td>-1</td></tr>
+                                            <tr><td>María</td><td>González</td><td>3.5</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Detección automática de columnas:</strong><br>
+                    <strong>Nombre:</strong> nombre, name, jugador<br>
+                    <strong>Apellido:</strong> apellido, surname (si no hay, se separa del nombre)<br>
+                    <strong>Handicap:</strong> handicap, hcp, hc<br>
+                    <strong>Puntos:</strong> puntos, points, pts<br>
+                    <strong>CN Totales:</strong> cn totales, cn, campeonatos<br>
+                    <strong>Categoría:</strong> categoria, categoría, cat, nivel
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<!-- PASO 2: VISTA PREVIA -->
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3><i class="bi bi-eye"></i> Vista Previa de Importación</h3>
+            <a href="{% url 'cargar_base' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Subir otro archivo
+            </a>
+        </div>
+
+        <!-- Resumen -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body py-3">
+                        <div class="display-6 fw-bold text-bridge">{{ total }}</div>
+                        <small class="text-muted">Total encontrados</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body py-3">
+                        <div class="display-6 fw-bold text-success">{{ nuevos }}</div>
+                        <small class="text-muted">Jugadores nuevos</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body py-3">
+                        <div class="display-6 fw-bold text-warning">{{ actualizados }}</div>
+                        <small class="text-muted">Handicaps a actualizar</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm text-center">
+                    <div class="card-body py-3">
+                        <div class="display-6 fw-bold text-muted">{{ sin_cambios }}</div>
+                        <small class="text-muted">Sin cambios</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla preview -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Detalle de jugadores</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-success filtro-btn active" data-filtro="todos">Todos</button>
+                    <button class="btn btn-sm btn-outline-success filtro-btn" data-filtro="nuevo">Nuevos</button>
+                    <button class="btn btn-sm btn-outline-warning filtro-btn" data-filtro="actualizar">Actualizados</button>
+                    <button class="btn btn-sm btn-outline-secondary filtro-btn" data-filtro="sin_cambios">Sin cambios</button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>#</th>
+                                <th>Estado</th>
+                                <th>Nombre</th>
+                                <th>Apellido</th>
+                                <th class="text-center">HC</th>
+                                <th class="text-center">Puntos</th>
+                                <th class="text-center">CN</th>
+                                <th>Categoría</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in preview %}
+                            <tr class="fila-preview" data-estado="{{ item.estado }}">
+                                <td class="text-muted">{{ forloop.counter }}</td>
+                                <td>
+                                    {% if item.estado == 'nuevo' %}
+                                        <span class="badge bg-success">Nuevo</span>
+                                    {% elif item.estado == 'actualizar' %}
+                                        <span class="badge bg-warning text-dark">Actualizar</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Sin cambios</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ item.nombre }}</td>
+                                <td>{{ item.apellido }}</td>
+                                <td class="text-center fw-bold">
+                                    {% if item.estado == 'actualizar' %}
+                                        <span class="text-warning">{{ item.handicap }}</span>
+                                    {% elif item.estado == 'nuevo' %}
+                                        <span class="text-success">{{ item.handicap }}</span>
+                                    {% else %}
+                                        {{ item.handicap }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ item.puntos }}</td>
+                                <td class="text-center">{{ item.cn_totales }}</td>
+                                <td>{{ item.categoria }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón confirmar -->
+        {% if nuevos > 0 or actualizados > 0 %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center p-4">
+                <form action="{% url 'cargar_base_confirmar' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="datos_json" value='{{ datos_json }}'>
+                    <p class="mb-3">
+                        Se agregarán <strong class="text-success">{{ nuevos }} jugadores nuevos</strong>
+                        y se actualizarán <strong class="text-warning">{{ actualizados }} handicaps</strong>.
+                    </p>
+                    <button type="submit" class="btn btn-bridge btn-lg px-5">
+                        <i class="bi bi-check-circle"></i> Confirmar Importación
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i>
+            No hay cambios para realizar. Todos los jugadores ya están al día.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Mostrar nombre del archivo seleccionado
+    const archivoInput = document.getElementById('archivoInput');
+    if (archivoInput) {
+        archivoInput.addEventListener('change', function() {
+            const nombre = this.files[0]?.name;
+            const nombreDiv = document.getElementById('nombreArchivo');
+            if (nombre) {
+                nombreDiv.textContent = 'Archivo seleccionado: ' + nombre;
+                nombreDiv.style.display = 'block';
+            }
+        });
+    }
+
+    // Drag & drop visual feedback
+    const uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) {
+        ['dragenter', 'dragover'].forEach(event => {
+            uploadArea.addEventListener(event, (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+        });
+        ['dragleave', 'drop'].forEach(event => {
+            uploadArea.addEventListener(event, (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+            });
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                archivoInput.files = files;
+                archivoInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    // Filtros en la vista previa
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            const filtro = this.dataset.filtro;
+            document.querySelectorAll('.fila-preview').forEach(fila => {
+                if (filtro === 'todos' || fila.dataset.estado === filtro) {
+                    fila.style.display = '';
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

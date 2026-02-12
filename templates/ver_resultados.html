@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Resultados - {{ torneo.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0">
+            <i class="bi bi-trophy-fill text-warning"></i> Resultados del Torneo
+        </h2>
+        <small class="text-muted">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'torneo_detalle' id=torneo.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+        {% if total_boards > 0 %}
+        <a href="{% url 'torneo_ver_manos' id=torneo.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-card-list"></i> Ver Manos
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Info del torneo -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información del Torneo</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Sesión:</strong> {{ resultado.session_info|default:"—" }}</p>
+                        <p class="mb-1"><strong>Movimiento:</strong> {{ resultado.movimiento|default:"—" }}</p>
+                        <p class="mb-1"><strong>Tipo:</strong> {{ tipos_torneo|default_if_none:"Hándicap" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Mesas:</strong> {{ resultado.mesas|default:"—" }}</p>
+                        <p class="mb-1"><strong>Boards:</strong> {{ resultado.boards_totales|default:total_boards }}</p>
+                        <p class="mb-1"><strong>Parejas:</strong> {{ rankings|length }}</p>
+                    </div>
+                </div>
+                <hr>
+                <small class="text-muted">
+                    <i class="bi bi-clock"></i> Importado: {{ resultado.fecha_importacion|date:"d/m/Y H:i" }}
+                    {% if resultado.nombre_archivo_ranks %}
+                    | <i class="bi bi-file-text"></i> {{ resultado.nombre_archivo_ranks }}
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-success">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-2">Puntos a Asignar</h6>
+                <h2 class="text-success mb-3">
+                    {% with total_puntos=0 %}
+                    {% for r in rankings %}
+                        {% if r.puntos_asignados %}{{ r.puntos_asignados|add:total_puntos }}{% endif %}
+                    {% endfor %}
+                    {% endwith %}
+                </h2>
+                <form method="post" action="{% url 'torneo_actualizar_puntos' id=torneo.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-plus-circle"></i> Asignar Puntos a Jugadores
+                    </button>
+                </form>
+                <small class="text-muted d-block mt-2">
+                    Solo se asignan puntos a jugadores vinculados
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de rankings -->
+<div class="card shadow-sm">
+    <div class="card-header bg-bridge text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ol"></i> Rankings Finales</h5>
+        <span class="badge bg-light text-dark">{{ rankings|length }} parejas</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center" style="width: 60px;">Pos</th>
+                        <th style="width: 60px;">Par</th>
+                        <th>Pareja</th>
+                        <th class="text-center">Boards</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">%</th>
+                        <th class="text-center">HCP</th>
+                        <th class="text-end">% c/HCP</th>
+                        <th class="text-center">Pts</th>
+                        <th class="text-center">Vinculados</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rankings %}
+                    <tr>
+                        <td class="text-center">
+                            {% if r.posicion <= 3 %}
+                                {% if r.posicion == 1 %}
+                                    <span class="badge bg-warning text-dark fs-6">
+                                        <i class="bi bi-trophy-fill"></i> 1
+                                    </span>
+                                {% elif r.posicion == 2 %}
+                                    <span class="badge bg-secondary fs-6">
+                                        <i class="bi bi-trophy"></i> 2
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger fs-6">
+                                        <i class="bi bi-trophy"></i> 3
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <strong>{{ r.posicion }}</strong>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{{ r.numero_pareja }}</td>
+                        <td>
+                            <div>
+                                <span class="fw-medium">{{ r.nombre_jugador1 }}</span>
+                                <span class="text-muted">&</span>
+                                <span class="fw-medium">{{ r.nombre_jugador2 }}</span>
+                            </div>
+                        </td>
+                        <td class="text-center">{{ r.boards_jugados }}</td>
+                        <td class="text-end">{{ r.total_puntos|floatformat:2 }}</td>
+                        <td class="text-end">{{ r.porcentaje|floatformat:2 }}%</td>
+                        <td class="text-center">
+                            <span class="badge bg-info">{{ r.handicap|floatformat:1 }}</span>
+                        </td>
+                        <td class="text-end fw-bold">{{ r.porcentaje_con_handicap|floatformat:2 }}%</td>
+                        <td class="text-center">
+                            {% if r.puntos_asignados and r.puntos_asignados > 0 %}
+                                <span class="badge bg-success fs-6">+{{ r.puntos_asignados|floatformat:0 }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if r.jugador1 and r.jugador2 %}
+                                <span class="badge bg-success" title="Ambos jugadores vinculados">
+                                    <i class="bi bi-check-circle-fill"></i> 2/2
+                                </span>
+                            {% elif r.jugador1 or r.jugador2 %}
+                                <span class="badge bg-warning text-dark" title="Un jugador vinculado">
+                                    <i class="bi bi-exclamation-circle"></i> 1/2
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary" title="Ningún jugador vinculado">
+                                    <i class="bi bi-x-circle"></i> 0/2
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            No hay rankings importados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if total_boards > 0 %}
+<div class="text-center mt-4">
+    <a href="{% url 'torneo_ver_manos' id=torneo.id %}" class="btn btn-outline-primary btn-lg">
+        <i class="bi bi-card-list"></i> Ver {{ total_boards }} Manos Jugadas
+    </a>
+</div>
+{% endif %}
+{% endblock %}
