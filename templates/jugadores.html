@@ -93,7 +93,7 @@
                     <span class="badge bg-bridge ms-2">{{ jugadores|length }}</span>
                 </h5>
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-bridge" id="btn-ranking-aub"
+                    <button type="button" class="btn btn-sm btn-bridge-active" id="btn-ranking-aub"
                             title="Ordenar por Ranking AUB (Categoría + Puntos)">
                         <i class="bi bi-trophy-fill"></i> Ranking AUB
                     </button>
@@ -169,10 +169,10 @@
                                             data-id="{{ jugador.id }}"
                                             data-nombre="{{ jugador.nombre }}"
                                             data-apellido="{{ jugador.apellido }}"
-                                            data-handicap="{{ jugador.handicap }}"
-                                            data-puntos="{{ jugador.puntos|default:0 }}"
-                                            data-cn="{{ jugador.cn_totales|default:0 }}"
-                                            data-categoria="{{ jugador.categoria|default:'' }}"
+                                            data-handicap="{{ jugador.handicap|default_if_none:0 }}"
+                                            data-puntos="{{ jugador.puntos|default_if_none:0 }}"
+                                            data-cn="{{ jugador.cn_totales|default_if_none:0 }}"
+                                            data-categoria="{{ jugador.categoria|default_if_none:'' }}"
                                             data-url="{% url 'jugador_editar' id=jugador.id %}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
@@ -261,7 +261,7 @@
     const headers = tabla.querySelectorAll('th.sortable');
     const btnRanking = document.getElementById('btn-ranking-aub');
     let ordenActual = { col: null, asc: true };
-    let rankingAubActivo = false;
+    let rankingAubActivo = true;  // Activo por defecto porque los datos vienen ordenados así
 
     const CATEGORIA_ORDEN = {
         'GRAN MAESTRO': 0,
@@ -427,12 +427,12 @@
             e.stopPropagation();
 
             formEditar.action = btn.dataset.url;
-            inputNombre.value = btn.dataset.nombre;
-            inputApellido.value = btn.dataset.apellido;
-            inputHandicap.value = btn.dataset.handicap;
-            inputPuntos.value = btn.dataset.puntos;
-            inputCn.value = btn.dataset.cn;
-            inputCategoria.value = btn.dataset.categoria;
+            inputNombre.value = btn.dataset.nombre || '';
+            inputApellido.value = btn.dataset.apellido || '';
+            inputHandicap.value = btn.dataset.handicap || '0';
+            inputPuntos.value = btn.dataset.puntos || '0';
+            inputCn.value = btn.dataset.cn || '0';
+            inputCategoria.value = btn.dataset.categoria || '';
 
             bsModal.show();
         });

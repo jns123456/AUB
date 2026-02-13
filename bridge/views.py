@@ -11,8 +11,8 @@ from datetime import date
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.db.models import Q
-from django.db.models.functions import ExtractYear
+from django.db.models import Q, Case, When, Value, IntegerField
+from django.db.models.functions import ExtractYear, Coalesce
 from django.http import HttpResponse, JsonResponse
 
 import openpyxl
@@ -99,8 +99,29 @@ def index(request):
 # =============================================================================
 
 def jugadores(request):
-    """Lista de jugadores."""
-    lista = Jugador.objects.filter(activo=True).order_by('apellido', 'nombre')
+    """Lista de jugadores ordenados por Ranking AUB (categoría + puntos)."""
+    # Orden de categorías según reglamento AUB
+    categoria_orden = Case(
+        When(categoria__iexact='GRAN MAESTRO', then=Value(0)),
+        When(categoria__iexact='GM', then=Value(0)),
+        When(categoria__iexact='MAESTRO', then=Value(1)),
+        When(categoria__iexact='SUPERIOR', then=Value(2)),
+        When(categoria__iexact='PRIMERA', then=Value(3)),
+        When(categoria__iexact='SEGUNDA', then=Value(4)),
+        When(categoria__iexact='TERCERA', then=Value(5)),
+        When(categoria__iexact='CUARTA', then=Value(6)),
+        When(categoria__iexact='QUINTA', then=Value(7)),
+        When(categoria__iexact='PRINCIPIANTES', then=Value(8)),
+        When(categoria__iexact='PRINCIPIANTE', then=Value(8)),
+        default=Value(99),
+        output_field=IntegerField(),
+    )
+    
+    # Ordenar por categoría (ascendente) y luego por puntos (descendente)
+    lista = Jugador.objects.filter(activo=True).annotate(
+        categoria_orden=categoria_orden
+    ).order_by('categoria_orden', '-puntos', 'apellido', 'nombre')
+    
     return render(request, 'jugadores.html', {'jugadores': lista})
 
 

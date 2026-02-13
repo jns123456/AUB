@@ -1,4 +1,4 @@
-# AUB - Equilibrador de Torneos de Bridge
+# AUB - Gestion de Torneos y Rankings AUB
 
 Aplicación web para la **Asociación Uruguaya de Bridge (AUB)** que permite equilibrar la asignación de direcciones Norte-Sur / Este-Oeste en torneos de bridge, balanceando los handicaps de las parejas.
 
