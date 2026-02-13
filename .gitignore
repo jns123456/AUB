@@ -15,6 +15,10 @@ env/
 # SQLite database
 instance/
 *.db
+db.sqlite3
+
+# Static files (production)
+staticfiles/
 
 # IDE
 .vscode/
