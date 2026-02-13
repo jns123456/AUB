@@ -15,6 +15,7 @@ class Jugador(models.Model):
     puntos = models.FloatField(null=True, blank=True, default=0)
     cn_totales = models.IntegerField(null=True, blank=True, default=0)
     categoria = models.CharField(max_length=50, null=True, blank=True, default='')
+    es_director = models.BooleanField(default=False, verbose_name='Autorizado como Director')
     activo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -30,6 +31,22 @@ class Jugador(models.Model):
         return f'{self.nombre} {self.apellido}'
 
 
+class Lugar(models.Model):
+    """Modelo de lugar/sede donde se juegan los torneos."""
+
+    nombre = models.CharField(max_length=150, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'lugares'
+        ordering = ['nombre']
+        verbose_name = 'Lugar'
+        verbose_name_plural = 'Lugares'
+
+    def __str__(self):
+        return self.nombre
+
+
 class Torneo(models.Model):
     """Modelo de torneo de bridge."""
 
@@ -42,6 +59,15 @@ class Torneo(models.Model):
     fecha = models.DateField(default=date.today)
     tipo = models.CharField(max_length=50, null=True, blank=True, default='handicap')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='configuracion')
+    director = models.ForeignKey(
+        Jugador, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='torneos_dirigidos', limit_choices_to={'es_director': True},
+        verbose_name='Director del Torneo'
+    )
+    lugar = models.ForeignKey(
+        Lugar, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='torneos', verbose_name='Lugar/Sede'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -104,6 +130,7 @@ class ResultadoImportado(models.Model):
     mesas = models.IntegerField(null=True, blank=True)
     boards_totales = models.IntegerField(null=True, blank=True)
     movimiento = models.CharField(max_length=100, null=True, blank=True)
+    confirmado = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'resultados_importados'

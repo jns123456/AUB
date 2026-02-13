@@ -26,6 +26,8 @@ urlpatterns = [
     path('torneos/', views.torneos, name='torneos'),
     path('torneo/nuevo/', views.torneo_nuevo, name='torneo_nuevo'),
     path('torneo/<int:id>/', views.torneo_detalle, name='torneo_detalle'),
+    path('torneo/<int:id>/acciones/', views.torneo_acciones, name='torneo_acciones'),
+    path('torneo/<int:id>/importar-archivos/', views.torneo_importar_archivos, name='torneo_importar_archivos'),
     path('torneo/<int:id>/pareja/', views.torneo_agregar_pareja, name='torneo_agregar_pareja'),
     path('torneo/<int:id>/pareja/<int:pareja_id>/eliminar/', views.torneo_eliminar_pareja, name='torneo_eliminar_pareja'),
     path('torneo/<int:id>/equilibrar/', views.torneo_equilibrar, name='torneo_equilibrar'),
@@ -39,6 +41,8 @@ urlpatterns = [
     
     # Importación de resultados
     path('torneo/<int:id>/importar-resultados/', views.torneo_importar_resultados, name='torneo_importar_resultados'),
+    path('torneo/<int:id>/revisar-resultados/', views.torneo_revisar_resultados, name='torneo_revisar_resultados'),
+    path('torneo/<int:id>/confirmar-resultados/', views.torneo_confirmar_resultados, name='torneo_confirmar_resultados'),
     path('torneo/<int:id>/resultados-importados/', views.torneo_ver_resultados, name='torneo_ver_resultados'),
     path('torneo/<int:id>/manos/', views.torneo_ver_manos, name='torneo_ver_manos'),
     path('torneo/<int:id>/manos/<int:board>/', views.torneo_ver_manos, name='torneo_ver_manos_board'),

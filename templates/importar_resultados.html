@@ -3,114 +3,92 @@
 {% block title %}Importar Resultados - {{ torneo.nombre }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="mb-0">
+        <h2 class="text-2xl font-bold text-gray-800">
             <i class="bi bi-file-earmark-arrow-up"></i> Importar Resultados
         </h2>
-        <small class="text-muted">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
+        <small class="text-gray-500">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
     </div>
-    <a href="{% url 'torneo_detalle' id=torneo.id %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Volver al Torneo
+    <a href="{% url 'torneo_acciones' id=torneo.id %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+        <i class="bi bi-arrow-left"></i> Volver al Menú
     </a>
 </div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-bridge text-white">
-                <h5 class="mb-0"><i class="bi bi-upload"></i> Subir Archivos del Torneo</h5>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-bridge text-white px-6 py-3">
+                <h5 class="font-semibold"><i class="bi bi-upload"></i> Subir Archivos del Torneo</h5>
             </div>
-            <div class="card-body">
+            <div class="p-6">
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    
-                    <div class="mb-4">
-                        <label for="tipo_torneo" class="form-label fw-bold">Tipo de Torneo</label>
-                        <select name="tipo_torneo" id="tipo_torneo" class="form-select">
+                    <div class="mb-5">
+                        <label for="tipo_torneo" class="block text-sm font-semibold text-gray-700 mb-1">Tipo de Torneo</label>
+                        <select name="tipo_torneo" id="tipo_torneo"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-bridge/20 focus:border-bridge transition">
                             {% for key, label in tipos_torneo.items %}
-                                <option value="{{ key }}" {% if torneo.tipo == key %}selected{% endif %}>
-                                    {{ label }}
-                                </option>
+                                <option value="{{ key }}" {% if torneo.tipo == key %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
-                        <small class="text-muted">El tipo de torneo determina cómo se calculan los puntos de ranking.</small>
+                        <small class="text-gray-500 text-xs">Determina cómo se calculan los puntos de ranking.</small>
                     </div>
-                    
-                    <div class="mb-4">
-                        <label for="archivo_ranks" class="form-label fw-bold">
-                            <i class="bi bi-trophy text-warning"></i> Archivo de Rankings (Ranks.txt)
-                            <span class="text-danger">*</span>
+
+                    <div class="mb-5">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            <i class="bi bi-trophy text-yellow-500"></i> Rankings (Ranks.txt)
+                            <span class="text-red-500">*</span>
                         </label>
-                        <input type="file" name="archivo_ranks" id="archivo_ranks" 
-                               class="form-control" accept=".txt,.csv" required>
-                        <small class="text-muted">
-                            Archivo con los rankings finales del torneo (formato PairsScorer).
-                        </small>
+                        <input type="file" name="archivo_ranks" accept=".txt,.csv" required
+                               class="w-full text-sm text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-bridge/10 file:text-bridge hover:file:bg-bridge/20 transition">
+                        <small class="text-gray-500 text-xs">Archivo con los rankings finales del torneo.</small>
                     </div>
-                    
-                    <div class="mb-4">
-                        <label for="archivo_travellers" class="form-label fw-bold">
-                            <i class="bi bi-card-list text-info"></i> Archivo de Manos (Travellers.txt)
-                            <span class="text-muted">(opcional)</span>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">
+                            <i class="bi bi-card-list text-blue-500"></i> Manos (Travellers.txt)
+                            <span class="text-gray-400">(opcional)</span>
                         </label>
-                        <input type="file" name="archivo_travellers" id="archivo_travellers" 
-                               class="form-control" accept=".txt,.csv">
-                        <small class="text-muted">
-                            Archivo con el detalle de cada mano jugada. Opcional pero recomendado.
-                        </small>
+                        <input type="file" name="archivo_travellers" accept=".txt,.csv"
+                               class="w-full text-sm text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-bridge/10 file:text-bridge hover:file:bg-bridge/20 transition">
+                        <small class="text-gray-500 text-xs">Detalle de cada mano jugada. Opcional pero recomendado.</small>
                     </div>
-                    
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-bridge btn-lg">
-                            <i class="bi bi-cloud-upload"></i> Importar Resultados
-                        </button>
-                    </div>
+
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-bridge text-white rounded-lg hover:bg-bridge-light transition font-medium text-lg">
+                        <i class="bi bi-cloud-upload"></i> Importar Resultados
+                    </button>
                 </form>
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Instrucciones</h6>
+
+    <div>
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h6 class="font-semibold text-sm"><i class="bi bi-info-circle"></i> Instrucciones</h6>
             </div>
-            <div class="card-body">
-                <h6 class="fw-bold">Formato esperado</h6>
-                <p class="small text-muted">
-                    Los archivos deben ser exportados desde <strong>PairsScorer</strong> u otro software compatible.
-                </p>
-                
+            <div class="p-4 space-y-4 text-sm text-gray-600">
+                <div>
+                    <h6 class="font-semibold text-gray-800">Ranks.txt</h6>
+                    <ul class="list-disc list-inside text-gray-500 mt-1 space-y-0.5">
+                        <li>Posición</li>
+                        <li>Número de pareja</li>
+                        <li>Nombres de jugadores</li>
+                        <li>Porcentaje y handicap</li>
+                    </ul>
+                </div>
                 <hr>
-                
-                <h6 class="fw-bold">Ranks.txt</h6>
-                <p class="small text-muted">
-                    Contiene los rankings finales con:
-                </p>
-                <ul class="small text-muted">
-                    <li>Posición</li>
-                    <li>Número de pareja</li>
-                    <li>Nombres de jugadores</li>
-                    <li>Porcentaje y handicap</li>
-                </ul>
-                
-                <hr>
-                
-                <h6 class="fw-bold">Travellers.txt</h6>
-                <p class="small text-muted">
-                    Contiene el detalle de cada board:
-                </p>
-                <ul class="small text-muted">
-                    <li>Número de board</li>
-                    <li>Parejas NS y EW</li>
-                    <li>Contrato y resultado</li>
-                    <li>Match Points</li>
-                </ul>
-                
-                <hr>
-                
-                <div class="alert alert-info small mb-0">
+                <div>
+                    <h6 class="font-semibold text-gray-800">Travellers.txt</h6>
+                    <ul class="list-disc list-inside text-gray-500 mt-1 space-y-0.5">
+                        <li>Número de board</li>
+                        <li>Parejas NS y EW</li>
+                        <li>Contrato y resultado</li>
+                        <li>Match Points</li>
+                    </ul>
+                </div>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-blue-800">
                     <i class="bi bi-lightbulb"></i>
                     Los jugadores serán automáticamente vinculados a la base de datos si coinciden los nombres.
                 </div>

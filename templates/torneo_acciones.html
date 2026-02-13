@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ torneo.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto {% if not rankings %}min-h-[60vh] flex flex-col justify-center{% endif %}" x-data="accionesApp()">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-8">
+        <a href="{% url 'torneos' %}" class="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <!-- Box principal -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 md:p-10 max-w-3xl mx-auto">
+        <!-- Título -->
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-semibold text-gray-900">{{ torneo.nombre }}</h2>
+            <p class="text-base text-gray-500 mt-1">
+                {{ torneo.fecha|date:"d/m/Y" }} · {{ total_parejas }} parejas
+                {% if torneo.estado == 'equilibrado' %}
+                    · <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Equilibrado</span>
+                {% endif %}
+                {% if resultado and resultado.confirmado %}
+                    · <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Resultados confirmados</span>
+                {% elif pendiente_revision %}
+                    · <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Pendiente de revisión</span>
+                {% endif %}
+            </p>
+            {% if torneo.director or torneo.lugar %}
+            <div class="flex items-center justify-center gap-4 mt-2 text-sm text-gray-500">
+                {% if torneo.director %}
+                <span><i class="bi bi-person-badge text-bridge"></i> {{ torneo.director.nombre_completo }}</span>
+                {% endif %}
+                {% if torneo.lugar %}
+                <span><i class="bi bi-geo-alt text-bridge"></i> {{ torneo.lugar.nombre }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="text-center text-base text-gray-600 mb-6">Seleccioná una acción</p>
+
+        <!-- Grid de acciones -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Equilibrar Torneo -->
+            <a href="{% url 'torneo_detalle' id=torneo.id %}"
+               class="flex flex-col items-center p-6 bg-gray-50 border border-gray-200 rounded-2xl hover:bg-white hover:border-gray-300 hover:shadow-lg transition-all duration-200 group">
+                <div class="w-16 h-16 flex items-center justify-center rounded-xl bg-green-100 text-green-600 mb-3 group-hover:scale-110 transition-transform duration-200">
+                    <i class="bi bi-sliders text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700 text-center leading-tight">Equilibrar<br>Torneo</span>
+            </a>
+
+            <!-- Importar Resultados -->
+            <button @click="openUpload('resultados')" type="button"
+                    class="flex flex-col items-center p-6 bg-gray-50 border border-gray-200 rounded-2xl hover:bg-white hover:border-gray-300 hover:shadow-lg transition-all duration-200 group">
+                <div class="w-16 h-16 flex items-center justify-center rounded-xl bg-blue-100 text-blue-600 mb-3 group-hover:scale-110 transition-transform duration-200">
+                    <i class="bi bi-file-earmark-text text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700 text-center leading-tight">Importar<br>Resultados</span>
+            </button>
+
+            <!-- Importar Travellers -->
+            <button @click="openUpload('travellers')" type="button"
+                    class="flex flex-col items-center p-6 bg-gray-50 border border-gray-200 rounded-2xl hover:bg-white hover:border-gray-300 hover:shadow-lg transition-all duration-200 group">
+                <div class="w-16 h-16 flex items-center justify-center rounded-xl bg-purple-100 text-purple-600 mb-3 group-hover:scale-110 transition-transform duration-200">
+                    <i class="bi bi-table text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700 text-center leading-tight">Importar<br>Travellers</span>
+            </button>
+
+            <!-- Ver Ranking General -->
+            <a href="{% url 'ranking' %}"
+               class="flex flex-col items-center p-6 bg-gray-50 border border-gray-200 rounded-2xl hover:bg-white hover:border-gray-300 hover:shadow-lg transition-all duration-200 group">
+                <div class="w-16 h-16 flex items-center justify-center rounded-xl bg-amber-100 text-amber-600 mb-3 group-hover:scale-110 transition-transform duration-200">
+                    <i class="bi bi-bar-chart-line text-2xl"></i>
+                </div>
+                <span class="text-sm font-medium text-gray-700 text-center leading-tight">Ver<br>Ranking</span>
+            </a>
+        </div>
+
+        {% if pendiente_revision %}
+        <!-- Aviso de resultados pendientes de revisión -->
+        <div class="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-start gap-3">
+                <i class="bi bi-exclamation-triangle-fill text-amber-500 text-lg"></i>
+                <div>
+                    <p class="text-sm font-medium text-amber-900">Resultados importados pendientes de revisión</p>
+                    <p class="text-xs text-amber-700 mt-0.5">Revisá y confirmá los resultados para que aparezcan en el menú.</p>
+                </div>
+            </div>
+            <a href="{% url 'torneo_revisar_resultados' id=torneo.id %}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition">
+                <i class="bi bi-pencil-square"></i> Revisar Resultados
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if rankings %}
+    <!-- Sección de resultados importados -->
+    <div class="mt-8">
+        <!-- Info rápida -->
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h3 class="text-lg font-semibold text-gray-800">
+                <i class="bi bi-trophy-fill text-yellow-500"></i> Rankings del Torneo
+            </h3>
+            <div class="flex gap-2">
+                {% if total_boards > 0 %}
+                <a href="{% url 'torneo_ver_manos' id=torneo.id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition">
+                    <i class="bi bi-card-list"></i> Ver {{ total_boards }} Manos
+                </a>
+                {% endif %}
+                <a href="{% url 'torneo_ver_resultados' id=torneo.id %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                    <i class="bi bi-table"></i> Ver Detalle Completo
+                </a>
+            </div>
+        </div>
+
+        <!-- Info del resultado -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+                <p class="text-xs text-gray-500">Parejas</p>
+                <p class="text-xl font-bold text-gray-900">{{ rankings|length }}</p>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+                <p class="text-xs text-gray-500">Boards</p>
+                <p class="text-xl font-bold text-gray-900">{{ resultado.boards_totales|default:total_boards }}</p>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+                <p class="text-xs text-gray-500">Mesas</p>
+                <p class="text-xl font-bold text-gray-900">{{ resultado.mesas|default:"—" }}</p>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+                <p class="text-xs text-gray-500">Importado</p>
+                <p class="text-sm font-medium text-gray-700">{{ resultado.fecha_importacion|date:"d/m H:i" }}</p>
+            </div>
+        </div>
+
+        <!-- Tabla de rankings -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-12">Pos</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-10">#</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase">Pareja</th>
+                            <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase">%</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase">HCP</th>
+                            <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase">% c/HCP</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for r in rankings %}
+                        <tr class="hover:bg-gray-50 transition {% cycle 'bg-white' 'bg-gray-50/50' %}">
+                            <td class="px-3 py-2 text-center">
+                                {% if r.posicion == 1 %}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold"><i class="bi bi-trophy-fill"></i></span>
+                                {% elif r.posicion == 2 %}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-200 text-gray-700 text-xs font-bold"><i class="bi bi-trophy"></i></span>
+                                {% elif r.posicion == 3 %}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-100 text-orange-800 text-xs font-bold"><i class="bi bi-trophy"></i></span>
+                                {% else %}
+                                    <span class="font-semibold text-gray-700 text-sm">{{ r.posicion }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 text-center text-xs text-gray-400">{{ r.numero_pareja }}</td>
+                            <td class="px-3 py-2">
+                                <span class="text-sm font-medium">{{ r.nombre_jugador1 }}</span>
+                                <span class="text-gray-400 text-xs">&</span>
+                                <span class="text-sm font-medium">{{ r.nombre_jugador2 }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-right text-sm text-gray-700">{{ r.porcentaje|floatformat:2 }}%</td>
+                            <td class="px-3 py-2 text-center">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{{ r.handicap|floatformat:1 }}</span>
+                            </td>
+                            <td class="px-3 py-2 text-right text-sm font-bold text-gray-900">{{ r.porcentaje_con_handicap|floatformat:2 }}%</td>
+                            <td class="px-3 py-2 text-center">
+                                {% if r.puntos_asignados and r.puntos_asignados > 0 %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">+{{ r.puntos_asignados|floatformat:0 }}</span>
+                                {% else %}
+                                    <span class="text-gray-400 text-xs">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal de Upload -->
+    <div x-show="showModal" x-transition.opacity
+         class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+         @click.self="showModal = false" style="display: none;">
+        
+        <div x-show="showModal" x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+             class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            
+            <!-- Header -->
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 class="font-semibold text-gray-900" x-text="modalTitle"></h3>
+                <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 transition">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5">
+                <!-- Drop zone -->
+                <div @click="$refs.fileInput.click()"
+                     @dragover.prevent="dragging = true"
+                     @dragleave.prevent="dragging = false"
+                     @drop.prevent="handleDrop($event)"
+                     :class="{ 'border-bridge bg-bridge/5': dragging, 'border-gray-200 bg-gray-50': !dragging }"
+                     class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition hover:border-gray-300 hover:bg-white">
+                    
+                    <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" accept=".txt,.csv" class="hidden">
+                    
+                    <!-- Estado sin archivo -->
+                    <template x-if="!selectedFile">
+                        <div>
+                            <i class="bi bi-cloud-arrow-up text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-sm text-gray-700">Arrastrá el archivo aquí</p>
+                            <p class="text-xs text-gray-500">o hacé clic para seleccionar</p>
+                        </div>
+                    </template>
+
+                    <!-- Estado con archivo -->
+                    <template x-if="selectedFile">
+                        <div>
+                            <i class="bi bi-file-check text-3xl text-green-500 mb-2"></i>
+                            <p class="text-sm font-medium text-gray-900" x-text="selectedFile.name"></p>
+                            <button @click.stop="selectedFile = null; $refs.fileInput.value = ''"
+                                    class="mt-2 text-xs text-gray-500 hover:text-red-500 transition">
+                                Cambiar archivo
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Tipo de torneo (solo para resultados) -->
+                <div class="mt-4" x-show="currentAction === 'resultados'">
+                    <label class="block text-xs text-gray-500 mb-1">Tipo de torneo</label>
+                    <select x-model="tipoTorneo" class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-bridge/20 focus:border-bridge">
+                        {% for key, label in tipos_torneo.items %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Info para travellers -->
+                <div class="mt-4" x-show="currentAction === 'travellers'">
+                    <p class="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                        <i class="bi bi-info-circle text-blue-500"></i>
+                        El archivo Travellers contiene el detalle de cada mano jugada.
+                        {% if not resultado %}
+                        <span class="block mt-1 text-amber-600 font-medium">
+                            <i class="bi bi-exclamation-triangle"></i> Primero debés importar Resultados (Ranks.txt).
+                        </span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Botón submit -->
+                <button @click="submitForm()" :disabled="!selectedFile || submitting"
+                        :class="{ 'opacity-50 cursor-not-allowed': !selectedFile || submitting }"
+                        class="w-full mt-4 px-4 py-2.5 bg-bridge text-white font-medium rounded-lg hover:bg-bridge-light transition">
+                    <span x-show="!submitting"><i class="bi bi-upload mr-1"></i> Importar</span>
+                    <span x-show="submitting"><i class="bi bi-arrow-repeat animate-spin mr-1"></i> Importando...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form oculto -->
+    <form x-ref="importForm" method="POST" action="{% url 'torneo_importar_archivos' id=torneo.id %}" enctype="multipart/form-data" class="hidden">
+        {% csrf_token %}
+        <input type="file" name="archivo_ranks" x-ref="inputRanks" accept=".txt,.csv">
+        <input type="file" name="archivo_travellers" x-ref="inputTravellers" accept=".txt,.csv">
+        <input type="hidden" name="tipo_torneo" x-model="tipoTorneo">
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function accionesApp() {
+    return {
+        showModal: false,
+        modalTitle: '',
+        currentAction: '',
+        selectedFile: null,
+        tipoTorneo: 'handicap',
+        dragging: false,
+        submitting: false,
+
+        openUpload(action) {
+            this.currentAction = action;
+            this.modalTitle = action === 'resultados' 
+                ? 'Importar Resultados' 
+                : 'Importar Travellers';
+            this.selectedFile = null;
+            this.showModal = true;
+        },
+
+        handleDrop(e) {
+            this.dragging = false;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) this.processFile(files[0]);
+        },
+
+        handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) this.processFile(files[0]);
+        },
+
+        processFile(file) {
+            if (!file.name.match(/\.(txt|csv)$/i)) {
+                alert('Solo archivos .txt o .csv');
+                return;
+            }
+            this.selectedFile = file;
+        },
+
+        submitForm() {
+            if (!this.selectedFile) return;
+
+            this.submitting = true;
+
+            // Limpiar ambos inputs antes de asignar
+            const emptyDt = new DataTransfer();
+            this.$refs.inputRanks.files = emptyDt.files;
+            this.$refs.inputTravellers.files = emptyDt.files;
+
+            // Asignar archivo al input correcto
+            const dt = new DataTransfer();
+            dt.items.add(this.selectedFile);
+
+            if (this.currentAction === 'resultados') {
+                this.$refs.inputRanks.files = dt.files;
+            } else {
+                this.$refs.inputTravellers.files = dt.files;
+            }
+
+            this.$refs.importForm.submit();
+        }
+    }
+}
+</script>
+{% endblock %}

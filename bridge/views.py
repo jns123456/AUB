@@ -17,7 +17,7 @@ from django.http import HttpResponse, JsonResponse
 
 import openpyxl
 
-from .models import Jugador, Torneo, ParejaTorneo, ResultadoImportado, RankingImportado, ManoJugada
+from .models import Jugador, Torneo, ParejaTorneo, ResultadoImportado, RankingImportado, ManoJugada, Lugar
 from .algorithm import equilibrar_parejas
 from .parsers import parsear_ranks, parsear_travellers, emparejar_jugadores, calcular_puntos_ranking
 
@@ -83,14 +83,51 @@ TIPOS_TORNEO = {
 # =============================================================================
 
 def index(request):
-    """Página principal."""
+    """Página principal - Dashboard integral de gestión AUB."""
+    from django.db.models import Avg, Count, Sum
+    from datetime import date
+
+    hoy = date.today()
+    anio_actual = hoy.year
+
     total_jugadores = Jugador.objects.filter(activo=True).count()
     total_torneos = Torneo.objects.count()
+    torneos_este_anio = Torneo.objects.filter(fecha__year=anio_actual).count()
     torneos_recientes = Torneo.objects.order_by('-fecha')[:5]
+
+    # Categorías de jugadores para el resumen
+    categorias_count = (
+        Jugador.objects.filter(activo=True)
+        .exclude(categoria__isnull=True)
+        .exclude(categoria='')
+        .values('categoria')
+        .annotate(total=Count('id'))
+        .order_by('-total')
+    )
+
+    # Último torneo
+    ultimo_torneo = Torneo.objects.order_by('-fecha').first()
+
+    # Top jugadores por puntos
+    top_jugadores = Jugador.objects.filter(
+        activo=True, puntos__gt=0
+    ).order_by('-puntos')[:5]
+
+    # Promedio de handicap general
+    promedio_handicap = Jugador.objects.filter(activo=True).aggregate(
+        promedio=Avg('handicap')
+    )['promedio'] or 0
+
     return render(request, 'index.html', {
         'total_jugadores': total_jugadores,
         'total_torneos': total_torneos,
+        'torneos_este_anio': torneos_este_anio,
         'torneos_recientes': torneos_recientes,
+        'categorias_count': categorias_count,
+        'ultimo_torneo': ultimo_torneo,
+        'top_jugadores': top_jugadores,
+        'promedio_handicap': round(promedio_handicap, 1),
+        'anio_actual': anio_actual,
     })
 
 
@@ -153,10 +190,12 @@ def jugador_nuevo(request):
     except (ValueError, TypeError):
         cn_totales = 0
     categoria = request.POST.get('categoria', '').strip()
+    es_director = request.POST.get('es_director') == '1'
 
     jugador = Jugador(
         nombre=nombre, apellido=apellido, handicap=handicap,
         puntos=puntos, cn_totales=cn_totales, categoria=categoria,
+        es_director=es_director,
     )
     jugador.save()
 
@@ -195,12 +234,15 @@ def jugador_editar(request, id):
         cn_totales = 0
     categoria = request.POST.get('categoria', '').strip()
 
+    es_director = request.POST.get('es_director') == '1'
+
     jugador.nombre = nombre
     jugador.apellido = apellido
     jugador.handicap = handicap
     jugador.puntos = puntos
     jugador.cn_totales = cn_totales
     jugador.categoria = categoria
+    jugador.es_director = es_director
     jugador.save()
 
     messages.success(request, f'Jugador {jugador.nombre_completo} actualizado.')
@@ -763,6 +805,8 @@ def torneo_nuevo(request):
     if request.method == 'POST':
         nombre = request.POST.get('nombre', '').strip()
         fecha_str = request.POST.get('fecha', '')
+        director_id = request.POST.get('director', '').strip()
+        lugar_id = request.POST.get('lugar', '').strip()
 
         if not nombre:
             messages.error(request, 'El nombre del torneo es obligatorio.')
@@ -774,12 +818,69 @@ def torneo_nuevo(request):
             fecha = date.today()
 
         torneo = Torneo(nombre=nombre, fecha=fecha)
+
+        # Asignar director si se seleccionó
+        if director_id:
+            try:
+                torneo.director = Jugador.objects.get(id=int(director_id), es_director=True)
+            except (Jugador.DoesNotExist, ValueError):
+                pass
+
+        # Asignar lugar si se seleccionó
+        if lugar_id:
+            try:
+                torneo.lugar = Lugar.objects.get(id=int(lugar_id))
+            except (Lugar.DoesNotExist, ValueError):
+                pass
+
         torneo.save()
 
         messages.success(request, f'Torneo "{torneo.nombre}" creado exitosamente.')
-        return redirect('torneo_detalle', id=torneo.id)
+        # Redirigir a la página de acciones del torneo
+        return redirect('torneo_acciones', id=torneo.id)
 
-    return render(request, 'torneo_nuevo.html', {'hoy': date.today().isoformat()})
+    # GET: mostrar formulario con directores autorizados y lugares
+    directores = Jugador.objects.filter(activo=True, es_director=True).order_by('apellido', 'nombre')
+    lugares = Lugar.objects.filter(activo=True)
+
+    return render(request, 'torneo_nuevo.html', {
+        'hoy': date.today().isoformat(),
+        'directores': directores,
+        'lugares': lugares,
+    })
+
+
+def torneo_acciones(request, id):
+    """Página principal (hub) del torneo: acciones e información de resultados."""
+    torneo = get_object_or_404(Torneo, id=id)
+    
+    # Verificar si hay resultados importados
+    rankings = None
+    resultado = None
+    total_boards = 0
+    pendiente_revision = False
+    total_parejas = torneo.cantidad_parejas
+    try:
+        resultado = torneo.resultado_importado
+        total_boards = resultado.manos.values('board_numero').distinct().count()
+        # Usar la cantidad de rankings importados si hay resultado
+        total_parejas = resultado.rankings.count()
+        if resultado.confirmado:
+            rankings = resultado.rankings.all()
+        else:
+            pendiente_revision = True
+    except ResultadoImportado.DoesNotExist:
+        pass
+    
+    return render(request, 'torneo_acciones.html', {
+        'torneo': torneo,
+        'tipos_torneo': TIPOS_TORNEO,
+        'resultado': resultado,
+        'rankings': rankings,
+        'total_boards': total_boards,
+        'total_parejas': total_parejas,
+        'pendiente_revision': pendiente_revision,
+    })
 
 
 def torneo_detalle(request, id):
@@ -945,7 +1046,7 @@ def torneo_reset(request, id):
         pareja.save()
 
     messages.info(request, 'Equilibrado reseteado. Podés volver a equilibrar.')
-    return redirect('torneo_detalle', id=id)
+    return redirect('torneo_acciones', id=id)
 
 
 def torneo_resultados(request, id):
@@ -1016,7 +1117,7 @@ def torneo_resultados(request, id):
         pareja.save()
 
     messages.success(request, 'Resultados guardados exitosamente.')
-    return redirect('torneo_detalle', id=id)
+    return redirect('torneo_acciones', id=id)
 
 
 def torneo_eliminar(request, id):
@@ -1052,22 +1153,60 @@ def ranking(request, anio=None):
     if anio not in anios_disponibles and anios_disponibles:
         anio = anios_disponibles[0]
 
-    # Obtener todos los torneos del año seleccionado que tienen resultados
+    # Obtener todos los torneos del año seleccionado
     torneos_anio = Torneo.objects.filter(
         fecha__year=anio,
-        estado='equilibrado',
     ).order_by('-fecha')
 
     # Acumular puntos por jugador
     puntos_jugador = {}
 
-    for torneo in torneos_anio:
-        for pareja in torneo.parejas.all():
+    for torneo_obj in torneos_anio:
+        tipo_label = TIPOS_TORNEO.get(torneo_obj.tipo, torneo_obj.tipo or '')
+
+        # Fuente 1: Resultados importados confirmados (RankingImportado)
+        try:
+            resultado = torneo_obj.resultado_importado
+            if resultado.confirmado:
+                for ri in resultado.rankings.all():
+                    pts = ri.puntos_asignados or 0
+                    if pts <= 0:
+                        continue
+
+                    for jugador in [ri.jugador1, ri.jugador2]:
+                        if jugador is None:
+                            continue
+                        if jugador.id not in puntos_jugador:
+                            puntos_jugador[jugador.id] = {
+                                'jugador': jugador,
+                                'puntos_total': 0,
+                                'torneos_jugados': 0,
+                                'detalle': [],
+                            }
+                        puntos_jugador[jugador.id]['puntos_total'] += pts
+                        puntos_jugador[jugador.id]['torneos_jugados'] += 1
+                        puntos_jugador[jugador.id]['detalle'].append({
+                            'torneo': torneo_obj.nombre,
+                            'fecha': torneo_obj.fecha,
+                            'tipo': tipo_label,
+                            'posicion': ri.posicion,
+                            'direccion': '',
+                            'puntos': pts,
+                        })
+                # Si ya tiene resultados importados confirmados, no sumar también las parejas manuales
+                continue
+        except ResultadoImportado.DoesNotExist:
+            pass
+
+        # Fuente 2: Parejas del equilibrador manual (ParejaTorneo)
+        if torneo_obj.estado != 'equilibrado':
+            continue
+
+        for pareja in torneo_obj.parejas.all():
             if not pareja.puntos_ranking or pareja.puntos_ranking <= 0:
                 continue
 
             pts = pareja.puntos_ranking
-            tipo_label = TIPOS_TORNEO.get(torneo.tipo, torneo.tipo or '')
 
             for jugador in [pareja.jugador1, pareja.jugador2]:
                 if jugador.id not in puntos_jugador:
@@ -1081,8 +1220,8 @@ def ranking(request, anio=None):
                 puntos_jugador[jugador.id]['puntos_total'] += pts
                 puntos_jugador[jugador.id]['torneos_jugados'] += 1
                 puntos_jugador[jugador.id]['detalle'].append({
-                    'torneo': torneo.nombre,
-                    'fecha': torneo.fecha,
+                    'torneo': torneo_obj.nombre,
+                    'fecha': torneo_obj.fecha,
                     'tipo': tipo_label,
                     'posicion': pareja.posicion_final,
                     'direccion': pareja.direccion,
@@ -1108,6 +1247,89 @@ def ranking(request, anio=None):
 # IMPORTACIÓN DE RESULTADOS DE TORNEO
 # =============================================================================
 
+def torneo_importar_archivos(request, id):
+    """Importar archivos desde la página de acciones del torneo.
+    
+    Maneja dos flujos:
+    - Importar Resultados (Ranks.txt): crea resultado nuevo con rankings
+    - Importar Travellers (Travellers.txt): agrega manos a un resultado existente
+    """
+    if request.method != 'POST':
+        return redirect('torneo_acciones', id=id)
+    
+    torneo = get_object_or_404(Torneo, id=id)
+    archivo_ranks = request.FILES.get('archivo_ranks')
+    archivo_travellers = request.FILES.get('archivo_travellers')
+    
+    # Si hay archivo de ranks, usar el flujo completo de importación
+    if archivo_ranks and archivo_ranks.name:
+        return torneo_importar_resultados(request, id)
+    
+    # Si solo hay travellers, importar manos sobre resultado existente
+    if archivo_travellers and archivo_travellers.name:
+        try:
+            resultado = torneo.resultado_importado
+        except ResultadoImportado.DoesNotExist:
+            messages.error(request,
+                'Primero debés importar los Resultados (Ranks.txt) antes de importar Travellers.'
+            )
+            return redirect('torneo_acciones', id=id)
+        
+        try:
+            archivo_bytes = archivo_travellers.read()
+            contenido = None
+            for encoding in ('utf-8-sig', 'utf-8', 'latin-1', 'cp1252'):
+                try:
+                    contenido = archivo_bytes.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if contenido is None:
+                contenido = archivo_bytes.decode('utf-8', errors='replace')
+            
+            datos_travellers = parsear_travellers(contenido)
+            
+            if not datos_travellers or not datos_travellers.get('manos'):
+                messages.error(request, 'No se encontraron manos en el archivo Travellers.')
+                return redirect('torneo_acciones', id=id)
+            
+            # Eliminar manos anteriores y cargar nuevas
+            resultado.manos.all().delete()
+            resultado.nombre_archivo_travellers = archivo_travellers.name
+            resultado.save()
+            
+            manos_bulk = []
+            for m in datos_travellers['manos']:
+                manos_bulk.append(ManoJugada(
+                    resultado=resultado,
+                    board_numero=m['board_numero'],
+                    pareja_ns=m['pareja_ns'],
+                    pareja_ew=m['pareja_ew'],
+                    contrato=m['contrato'],
+                    declarante=m['declarante'],
+                    salida=m['salida'],
+                    puntos_ns_positivo=m['puntos_ns_positivo'],
+                    puntos_ns_negativo=m['puntos_ns_negativo'],
+                    mp_ns=m['mp_ns'],
+                    mp_ew=m['mp_ew'],
+                    nombre_pareja_ns=m['nombre_pareja_ns'],
+                    nombre_pareja_ew=m['nombre_pareja_ew']
+                ))
+            ManoJugada.objects.bulk_create(manos_bulk)
+            
+            messages.success(request,
+                f'Travellers importados exitosamente: {len(manos_bulk)} manos cargadas.'
+            )
+            return redirect('torneo_acciones', id=id)
+            
+        except Exception as e:
+            messages.error(request, f'Error al importar Travellers: {str(e)}')
+            return redirect('torneo_acciones', id=id)
+    
+    messages.error(request, 'No se seleccionó ningún archivo.')
+    return redirect('torneo_acciones', id=id)
+
+
 def torneo_importar_resultados(request, id):
     """Importar resultados de torneo desde archivos Ranks.txt y Travellers.txt."""
     torneo = get_object_or_404(Torneo, id=id)
@@ -1125,7 +1347,7 @@ def torneo_importar_resultados(request, id):
     
     if not archivo_ranks or not archivo_ranks.name:
         messages.error(request, 'El archivo de Rankings es obligatorio.')
-        return redirect('torneo_importar_resultados', id=id)
+        return redirect('torneo_acciones', id=id)
     
     try:
         # Leer archivos (probar diferentes codificaciones)
@@ -1157,7 +1379,7 @@ def torneo_importar_resultados(request, id):
         
         if not datos_ranks['rankings']:
             messages.error(request, 'No se encontraron rankings en el archivo.')
-            return redirect('torneo_importar_resultados', id=id)
+            return redirect('torneo_acciones', id=id)
         
         # Eliminar resultado importado anterior si existe
         ResultadoImportado.objects.filter(torneo_id=id).delete()
@@ -1234,13 +1456,139 @@ def torneo_importar_resultados(request, id):
         total_manos = len(datos_travellers['manos']) if datos_travellers else 0
         
         messages.success(request,
-            f'Resultados importados exitosamente: {total_rankings} parejas, {total_manos} manos.'
+            f'Resultados importados: {total_rankings} parejas, {total_manos} manos. Revisá y confirmá los datos.'
         )
-        return redirect('torneo_ver_resultados', id=id)
+        return redirect('torneo_revisar_resultados', id=id)
         
     except Exception as e:
         messages.error(request, f'Error al importar los archivos: {str(e)}')
-        return redirect('torneo_importar_resultados', id=id)
+        return redirect('torneo_acciones', id=id)
+
+
+def torneo_revisar_resultados(request, id):
+    """Página de revisión y edición manual de resultados importados antes de confirmar."""
+    torneo = get_object_or_404(Torneo, id=id)
+    
+    try:
+        resultado = torneo.resultado_importado
+    except ResultadoImportado.DoesNotExist:
+        messages.warning(request, 'No hay resultados importados para revisar.')
+        return redirect('torneo_acciones', id=id)
+    
+    rankings = resultado.rankings.all()
+    ranking_ids = ','.join(str(r.id) for r in rankings)
+    
+    return render(request, 'torneo_revisar_resultados.html', {
+        'torneo': torneo,
+        'resultado': resultado,
+        'rankings': rankings,
+        'ranking_ids': ranking_ids,
+        'tipos_torneo': TIPOS_TORNEO,
+    })
+
+
+def torneo_confirmar_resultados(request, id):
+    """Guardar ediciones manuales y confirmar los resultados del torneo."""
+    if request.method != 'POST':
+        return redirect('torneo_revisar_resultados', id=id)
+    
+    torneo = get_object_or_404(Torneo, id=id)
+    
+    try:
+        resultado = torneo.resultado_importado
+    except ResultadoImportado.DoesNotExist:
+        messages.error(request, 'No hay resultados importados para confirmar.')
+        return redirect('torneo_acciones', id=id)
+    
+    tipo_torneo = request.POST.get('tipo_torneo', torneo.tipo or 'handicap')
+    ranking_ids_str = request.POST.get('ranking_ids', '')
+    deleted_ids_str = request.POST.get('deleted_ids', '')
+    
+    # IDs a eliminar
+    deleted_ids = set()
+    if deleted_ids_str:
+        deleted_ids = {int(x) for x in deleted_ids_str.split(',') if x.strip()}
+    
+    # Eliminar rankings descartados
+    if deleted_ids:
+        RankingImportado.objects.filter(id__in=deleted_ids, resultado=resultado).delete()
+    
+    # Actualizar cada ranking con los valores editados
+    jugadores_db = list(Jugador.objects.filter(activo=True))
+    
+    ranking_ids = [int(x) for x in ranking_ids_str.split(',') if x.strip()]
+    for rid in ranking_ids:
+        if rid in deleted_ids:
+            continue
+        
+        try:
+            ranking = RankingImportado.objects.get(id=rid, resultado=resultado)
+        except RankingImportado.DoesNotExist:
+            continue
+        
+        # Leer valores del formulario
+        ranking.posicion = int(request.POST.get(f'posicion_{rid}', ranking.posicion) or ranking.posicion)
+        ranking.numero_pareja = int(request.POST.get(f'numero_pareja_{rid}', ranking.numero_pareja) or ranking.numero_pareja)
+        
+        nuevo_j1 = request.POST.get(f'nombre_jugador1_{rid}', ranking.nombre_jugador1)
+        nuevo_j2 = request.POST.get(f'nombre_jugador2_{rid}', ranking.nombre_jugador2)
+        
+        # Re-emparejar si cambió el nombre
+        if nuevo_j1 != ranking.nombre_jugador1:
+            ranking.nombre_jugador1 = nuevo_j1
+            ranking.jugador1_id = emparejar_jugadores(nuevo_j1, jugadores_db)
+        if nuevo_j2 != ranking.nombre_jugador2:
+            ranking.nombre_jugador2 = nuevo_j2
+            ranking.jugador2_id = emparejar_jugadores(nuevo_j2, jugadores_db)
+        
+        ranking.boards_jugados = int(request.POST.get(f'boards_jugados_{rid}', ranking.boards_jugados) or 0)
+        
+        try:
+            ranking.porcentaje = float(request.POST.get(f'porcentaje_{rid}', ranking.porcentaje) or 0)
+        except (ValueError, TypeError):
+            pass
+        try:
+            ranking.handicap = float(request.POST.get(f'handicap_{rid}', ranking.handicap) or 0)
+        except (ValueError, TypeError):
+            pass
+        try:
+            ranking.porcentaje_con_handicap = float(request.POST.get(f'porcentaje_con_handicap_{rid}', ranking.porcentaje_con_handicap) or 0)
+        except (ValueError, TypeError):
+            pass
+        try:
+            ranking.puntos_asignados = float(request.POST.get(f'puntos_asignados_{rid}', ranking.puntos_asignados) or 0)
+        except (ValueError, TypeError):
+            pass
+        
+        # Recalcular puntos si se cambió el tipo de torneo
+        ranking.puntos_asignados = calcular_puntos_ranking(
+            ranking.posicion,
+            ranking.porcentaje_con_handicap,
+            tipo_torneo
+        )
+        
+        ranking.save()
+    
+    # Marcar como confirmado
+    resultado.confirmado = True
+    resultado.save()
+    
+    # Actualizar tipo de torneo
+    torneo.tipo = tipo_torneo
+    torneo.save()
+    
+    # Contar jugadores vinculados para el mensaje
+    jugadores_vinculados = 0
+    for ranking in resultado.rankings.all():
+        if ranking.jugador1:
+            jugadores_vinculados += 1
+        if ranking.jugador2:
+            jugadores_vinculados += 1
+    
+    messages.success(request,
+        f'Resultados confirmados. {jugadores_vinculados} jugadores vinculados al ranking.'
+    )
+    return redirect('torneo_acciones', id=id)
 
 
 def torneo_ver_resultados(request, id):
@@ -1251,7 +1599,7 @@ def torneo_ver_resultados(request, id):
         resultado = torneo.resultado_importado
     except ResultadoImportado.DoesNotExist:
         messages.warning(request, 'No hay resultados importados para este torneo.')
-        return redirect('torneo_detalle', id=id)
+        return redirect('torneo_acciones', id=id)
     
     # Obtener rankings ordenados por posición
     rankings = resultado.rankings.all()
@@ -1276,7 +1624,7 @@ def torneo_ver_manos(request, id, board=None):
         resultado = torneo.resultado_importado
     except ResultadoImportado.DoesNotExist:
         messages.warning(request, 'No hay resultados importados para este torneo.')
-        return redirect('torneo_detalle', id=id)
+        return redirect('torneo_acciones', id=id)
     
     # Obtener lista de boards disponibles
     boards_disponibles = list(
@@ -1287,7 +1635,7 @@ def torneo_ver_manos(request, id, board=None):
     
     if not boards_disponibles:
         messages.warning(request, 'No hay manos registradas para este torneo.')
-        return redirect('torneo_ver_resultados', id=id)
+        return redirect('torneo_acciones', id=id)
     
     # Si no se especifica board, mostrar el primero
     if board is None:
@@ -1316,7 +1664,7 @@ def torneo_actualizar_puntos(request, id):
         resultado = torneo.resultado_importado
     except ResultadoImportado.DoesNotExist:
         messages.error(request, 'No hay resultados importados para este torneo.')
-        return redirect('torneo_detalle', id=id)
+        return redirect('torneo_acciones', id=id)
     
     rankings = resultado.rankings.all()
     
@@ -1339,4 +1687,4 @@ def torneo_actualizar_puntos(request, id):
                 jugadores_actualizados += 1
     
     messages.success(request, f'Se actualizaron los puntos de {jugadores_actualizados} jugadores.')
-    return redirect('torneo_ver_resultados', id=id)
+    return redirect('torneo_acciones', id=id)

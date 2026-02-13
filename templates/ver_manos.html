@@ -3,199 +3,147 @@
 {% block title %}Manos - Board {{ board_actual }} - {{ torneo.nombre }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="mb-0">
+        <h2 class="text-2xl font-bold text-gray-800">
             <i class="bi bi-card-list"></i> Manos Jugadas
         </h2>
-        <small class="text-muted">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
+        <small class="text-gray-500">{{ torneo.nombre }} - {{ torneo.fecha|date:"d/m/Y" }}</small>
     </div>
-    <div class="btn-group">
-        <a href="{% url 'torneo_ver_resultados' id=torneo.id %}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Volver a Resultados
+    <div class="flex gap-2">
+        <a href="{% url 'torneo_acciones' id=torneo.id %}" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
+            <i class="bi bi-arrow-left"></i> Volver al Menú
+        </a>
+        <a href="{% url 'torneo_ver_resultados' id=torneo.id %}" class="inline-flex items-center gap-1 px-4 py-2 border border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 transition text-sm">
+            <i class="bi bi-list-ol"></i> Ver Rankings
         </a>
     </div>
 </div>
 
-<!-- Selector de Board -->
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <div class="d-flex align-items-center flex-wrap gap-2">
-            <span class="fw-bold me-2">Seleccionar Board:</span>
-            {% for board in boards_disponibles %}
-                <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=board %}" 
-                   class="btn btn-sm {% if board == board_actual %}btn-bridge{% else %}btn-outline-secondary{% endif %}">
-                    {{ board }}
-                </a>
-            {% endfor %}
-        </div>
+<!-- Board selector -->
+<div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+    <div class="flex items-center flex-wrap gap-2">
+        <span class="font-semibold text-sm mr-2">Seleccionar Board:</span>
+        {% for board in boards_disponibles %}
+            <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=board %}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition
+                      {% if board == board_actual %}bg-bridge text-white{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}">
+                {{ board }}
+            </a>
+        {% endfor %}
     </div>
 </div>
 
-<!-- Detalle del Board -->
-<div class="card shadow-sm">
-    <div class="card-header bg-bridge text-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="bi bi-suit-spade-fill"></i>
-            Board {{ board_actual }}
+<!-- Board detail -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="bg-bridge text-white px-4 py-3 flex justify-between items-center">
+        <h5 class="font-semibold">
+            <i class="bi bi-suit-spade-fill"></i> Board {{ board_actual }}
         </h5>
-        <div>
+        <div class="flex gap-2">
             {% if board_actual > boards_disponibles.0 %}
-                {% with prev_idx=board_actual|add:-1 %}
-                    {% for b in boards_disponibles %}
-                        {% if b == prev_idx or b < board_actual and forloop.last %}
-                            <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-sm btn-light">
-                                <i class="bi bi-chevron-left"></i> Board {{ b }}
-                            </a>
-                        {% endif %}
-                    {% endfor %}
-                {% endwith %}
+                {% for b in boards_disponibles reversed %}
+                    {% if b < board_actual %}
+                        <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="px-3 py-1 bg-white/20 text-white rounded text-sm hover:bg-white/30 transition">
+                            <i class="bi bi-chevron-left"></i> Board {{ b }}
+                        </a>
+                        {% if forloop.first %}{% endif %}
+                    {% endif %}
+                {% endfor %}
             {% endif %}
             {% if board_actual < boards_disponibles|last %}
-                {% with next_idx=board_actual|add:1 %}
-                    {% for b in boards_disponibles %}
-                        {% if b == next_idx or b > board_actual and forloop.first %}
-                            <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-sm btn-light">
-                                Board {{ b }} <i class="bi bi-chevron-right"></i>
-                            </a>
-                        {% endif %}
-                    {% endfor %}
-                {% endwith %}
+                {% for b in boards_disponibles %}
+                    {% if b > board_actual %}
+                        <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="px-3 py-1 bg-white/20 text-white rounded text-sm hover:bg-white/30 transition">
+                            Board {{ b }} <i class="bi bi-chevron-right"></i>
+                        </a>
+                        {% if forloop.first %}{% endif %}
+                    {% endif %}
+                {% endfor %}
             {% endif %}
         </div>
     </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover table-striped mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th class="text-center" style="width: 60px;">NS</th>
-                        <th class="text-center" style="width: 60px;">EW</th>
-                        <th class="text-center" style="width: 100px;">Contrato</th>
-                        <th class="text-center" style="width: 50px;">Dec</th>
-                        <th class="text-center" style="width: 80px;">NS+</th>
-                        <th class="text-center" style="width: 80px;">NS-</th>
-                        <th class="text-center" style="width: 80px;">MP NS</th>
-                        <th class="text-center" style="width: 80px;">MP EW</th>
-                        <th>Norte-Sur</th>
-                        <th>Este-Oeste</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for mano in manos %}
-                    <tr>
-                        <td class="text-center">
-                            <span class="badge bg-primary">{{ mano.pareja_ns }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge bg-danger">{{ mano.pareja_ew }}</span>
-                        </td>
-                        <td class="text-center">
-                            <span class="fw-bold fs-5">
-                                {% with contrato=mano.contrato %}
-                                    {% if "S" in contrato %}
-                                        <span class="text-primary">{{ contrato }}</span>
-                                    {% elif "H" in contrato %}
-                                        <span class="text-danger">{{ contrato }}</span>
-                                    {% elif "D" in contrato %}
-                                        <span class="text-warning">{{ contrato }}</span>
-                                    {% elif "C" in contrato %}
-                                        <span class="text-success">{{ contrato }}</span>
-                                    {% else %}
-                                        {{ contrato }}
-                                    {% endif %}
-                                {% endwith %}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge {% if mano.declarante == 'N' or mano.declarante == 'S' %}bg-primary{% else %}bg-danger{% endif %}">
-                                {{ mano.declarante }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            {% if mano.puntos_ns_positivo %}
-                                <span class="text-success fw-bold">+{{ mano.puntos_ns_positivo }}</span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            {% if mano.puntos_ns_negativo %}
-                                <span class="text-danger fw-bold">-{{ mano.puntos_ns_negativo }}</span>
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-center">
-                            <span class="badge {% if mano.mp_ns >= mano.mp_ew %}bg-success{% else %}bg-secondary{% endif %}">
-                                {{ mano.mp_ns|floatformat:0 }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <span class="badge {% if mano.mp_ew >= mano.mp_ns %}bg-success{% else %}bg-secondary{% endif %}">
-                                {{ mano.mp_ew|floatformat:0 }}
-                            </span>
-                        </td>
-                        <td>
-                            <small>{{ mano.nombre_pareja_ns|default:"—" }}</small>
-                        </td>
-                        <td>
-                            <small>{{ mano.nombre_pareja_ew|default:"—" }}</small>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="10" class="text-center text-muted py-4">
-                            No hay resultados para este board
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-800 text-white">
+                <tr>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase w-14">NS</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase w-14">EW</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase">Contrato</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase w-12">Dec</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase">NS+</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase">NS-</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase">MP NS</th>
+                    <th class="px-3 py-3 text-center text-xs font-semibold uppercase">MP EW</th>
+                    <th class="px-3 py-3 text-left text-xs font-semibold uppercase">Norte-Sur</th>
+                    <th class="px-3 py-3 text-left text-xs font-semibold uppercase">Este-Oeste</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for mano in manos %}
+                <tr class="hover:bg-gray-50 transition {% cycle 'bg-white' 'bg-gray-50/50' %}">
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ mano.pareja_ns }}</span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{{ mano.pareja_ew }}</span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="font-bold text-lg
+                            {% with contrato=mano.contrato %}
+                            {% if 'S' in contrato %}text-blue-600
+                            {% elif 'H' in contrato %}text-red-600
+                            {% elif 'D' in contrato %}text-yellow-600
+                            {% elif 'C' in contrato %}text-green-600
+                            {% else %}text-gray-700{% endif %}
+                            {% endwith %}">
+                            {{ mano.contrato }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if mano.declarante == 'N' or mano.declarante == 'S' %}bg-blue-100 text-blue-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ mano.declarante }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        {% if mano.puntos_ns_positivo %}
+                            <span class="text-green-600 font-bold">+{{ mano.puntos_ns_positivo }}</span>
+                        {% else %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        {% if mano.puntos_ns_negativo %}
+                            <span class="text-red-600 font-bold">-{{ mano.puntos_ns_negativo }}</span>
+                        {% else %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {% if mano.mp_ns >= mano.mp_ew %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ mano.mp_ns|floatformat:0 }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2.5 text-center">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {% if mano.mp_ew >= mano.mp_ns %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ mano.mp_ew|floatformat:0 }}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2.5 text-sm text-gray-600">{{ mano.nombre_pareja_ns|default:"—" }}</td>
+                    <td class="px-3 py-2.5 text-sm text-gray-600">{{ mano.nombre_pareja_ew|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center text-gray-400 py-8">No hay resultados para este board</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    <div class="card-footer bg-light">
-        <div class="row text-center">
-            <div class="col">
-                <small class="text-muted">
-                    <i class="bi bi-suit-spade-fill text-primary"></i> Picas
-                    <i class="bi bi-suit-heart-fill text-danger ms-2"></i> Corazones
-                    <i class="bi bi-suit-diamond-fill text-warning ms-2"></i> Diamantes
-                    <i class="bi bi-suit-club-fill text-success ms-2"></i> Tréboles
-                </small>
-            </div>
-        </div>
+    <div class="px-4 py-3 bg-gray-50 border-t border-gray-200 text-center">
+        <small class="text-gray-500">
+            <i class="bi bi-suit-spade-fill text-blue-600"></i> Picas
+            <i class="bi bi-suit-heart-fill text-red-500 ml-2"></i> Corazones
+            <i class="bi bi-suit-diamond-fill text-yellow-500 ml-2"></i> Diamantes
+            <i class="bi bi-suit-club-fill text-green-600 ml-2"></i> Tréboles
+        </small>
     </div>
-</div>
-
-<!-- Navegación rápida -->
-<div class="d-flex justify-content-between mt-4">
-    {% with first_board=boards_disponibles.0 last_board=boards_disponibles|last %}
-        {% if board_actual > first_board %}
-            {% for b in boards_disponibles reversed %}
-                {% if b < board_actual %}
-                    <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-outline-primary">
-                        <i class="bi bi-chevron-left"></i> Board {{ b }}
-                    </a>
-                    {% if forloop.first %}{% endif %}
-                {% endif %}
-            {% endfor %}
-        {% else %}
-            <span></span>
-        {% endif %}
-        
-        {% if board_actual < last_board %}
-            {% for b in boards_disponibles %}
-                {% if b > board_actual %}
-                    <a href="{% url 'torneo_ver_manos_board' id=torneo.id board=b %}" class="btn btn-outline-primary">
-                        Board {{ b }} <i class="bi bi-chevron-right"></i>
-                    </a>
-                    {% if forloop.first %}{% endif %}
-                {% endif %}
-            {% endfor %}
-        {% else %}
-            <span></span>
-        {% endif %}
-    {% endwith %}
 </div>
 {% endblock %}

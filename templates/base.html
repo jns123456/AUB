@@ -1,95 +1,139 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}AUB Bridge{% endblock %} - Gestion de Torneos y Rankings AUB</title>
+    <title>{% block title %}AUB{% endblock %} | Asociacion Uruguaya de Bridge</title>
 
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bridge: {
+                            DEFAULT: '#1a5c38',
+                            light: '#237a4b',
+                            dark: '#12432a',
+                        },
+                        ns: '#2563eb',
+                        eo: '#dc2626',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+
+    <!-- Bootstrap Icons (keeping for icon set) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
     <!-- Custom CSS -->
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
 </head>
-<body>
+<body class="bg-gray-50 min-h-screen flex flex-col" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-bridge">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="{% url 'index' %}">
-                <i class="bi bi-suit-spade-fill"></i> AUB Bridge
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}"
-                           href="{% url 'index' %}">
-                            <i class="bi bi-house"></i> Inicio
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'jugadores' %}active{% endif %}"
-                           href="{% url 'jugadores' %}">
-                            <i class="bi bi-people"></i> Jugadores
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'cargar_base' or request.resolver_match.url_name == 'cargar_base_confirmar' %}active{% endif %}"
-                           href="{% url 'cargar_base' %}">
-                            <i class="bi bi-database-up"></i> Cargar Base
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'torneos' or request.resolver_match.url_name == 'torneo_nuevo' or request.resolver_match.url_name == 'torneo_detalle' %}active{% endif %}"
-                           href="{% url 'torneos' %}">
-                            <i class="bi bi-trophy"></i> Torneos
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'ranking' or request.resolver_match.url_name == 'ranking_anio' %}active{% endif %}"
-                           href="{% url 'ranking' %}">
-                            <i class="bi bi-bar-chart-line"></i> Ranking
-                        </a>
-                    </li>
-                </ul>
+    <nav class="bg-bridge shadow-lg" x-data="{ mobileOpen: false }">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <a href="{% url 'index' %}" class="flex items-center gap-2 text-white font-bold text-lg hover:text-gray-200 transition group">
+                    <img src="{% static 'img/logo-aub.png' %}" alt="AUB Logo" class="h-10 w-auto">
+                </a>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex items-center space-x-1">
+                    <a href="{% url 'index' %}"
+                       class="px-3 py-2 rounded-md text-sm font-medium transition
+                              {% if request.resolver_match.url_name == 'index' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
+                        <i class="bi bi-house"></i> Inicio
+                    </a>
+                    <a href="{% url 'jugadores' %}"
+                       class="px-3 py-2 rounded-md text-sm font-medium transition
+                              {% if request.resolver_match.url_name == 'jugadores' or request.resolver_match.url_name == 'cargar_base' or request.resolver_match.url_name == 'cargar_base_confirmar' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
+                        <i class="bi bi-people"></i> Jugadores
+                    </a>
+                    <a href="{% url 'torneos' %}"
+                       class="px-3 py-2 rounded-md text-sm font-medium transition
+                              {% if request.resolver_match.url_name == 'torneos' or request.resolver_match.url_name == 'torneo_nuevo' or request.resolver_match.url_name == 'torneo_detalle' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
+                        <i class="bi bi-trophy"></i> Torneos
+                    </a>
+                    <a href="{% url 'ranking' %}"
+                       class="px-3 py-2 rounded-md text-sm font-medium transition
+                              {% if request.resolver_match.url_name == 'ranking' or request.resolver_match.url_name == 'ranking_anio' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
+                        <i class="bi bi-bar-chart-line"></i> Ranking
+                    </a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <button @click="mobileOpen = !mobileOpen"
+                        class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-200 hover:text-white hover:bg-bridge-light transition">
+                    <i class="bi" :class="mobileOpen ? 'bi-x-lg' : 'bi-list'" style="font-size: 1.25rem;"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div x-show="mobileOpen" x-transition class="md:hidden border-t border-bridge-light">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="{% url 'index' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-bridge-light hover:text-white transition">
+                    <i class="bi bi-house"></i> Inicio
+                </a>
+                <a href="{% url 'jugadores' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-bridge-light hover:text-white transition">
+                    <i class="bi bi-people"></i> Jugadores
+                </a>
+                <a href="{% url 'torneos' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-bridge-light hover:text-white transition">
+                    <i class="bi bi-trophy"></i> Torneos
+                </a>
+                <a href="{% url 'ranking' %}" class="block px-3 py-2 rounded-md text-sm font-medium text-gray-200 hover:bg-bridge-light hover:text-white transition">
+                    <i class="bi bi-bar-chart-line"></i> Ranking
+                </a>
             </div>
         </div>
     </nav>
 
     <!-- Flash Messages -->
-    <div class="container mt-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+            <div x-data="{ show: true }" x-show="show" x-transition
+                 class="mb-3 px-4 py-3 rounded-lg flex items-center justify-between
+                        {% if message.tags == 'success' %}bg-green-100 text-green-800 border border-green-200
+                        {% elif message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200
+                        {% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800 border border-yellow-200
+                        {% elif message.tags == 'info' %}bg-blue-100 text-blue-800 border border-blue-200
+                        {% else %}bg-gray-100 text-gray-800 border border-gray-200{% endif %}">
+                <span>{{ message }}</span>
+                <button @click="show = false" class="ml-4 text-current opacity-50 hover:opacity-100 transition">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
             {% endfor %}
         {% endif %}
     </div>
 
     <!-- Main Content -->
-    <main class="container my-4">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-light py-3 mt-5">
-        <div class="container text-center">
-            <small>
-                <i class="bi bi-suit-heart-fill text-danger"></i>
-                Asociación Uruguaya de Bridge &mdash; Gestion de Torneos y Rankings AUB
-                <i class="bi bi-suit-diamond-fill text-danger"></i>
-            </small>
+    <footer class="bg-gray-900 text-gray-400 py-6 mt-8 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm space-y-1">
+            <p class="font-medium text-gray-300 flex items-center justify-center gap-2">
+                <img src="{% static 'img/logo-aub.png' %}" alt="AUB Logo" class="h-8 w-auto opacity-80">
+            </p>
+            <p class="text-xs text-gray-500">Sistema Integral de Gestion &mdash; Jugadores &middot; Torneos &middot; Rankings &middot; Handicaps</p>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <!-- html2canvas for image capture -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     {% block scripts %}{% endblock %}

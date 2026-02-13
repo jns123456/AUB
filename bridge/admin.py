@@ -3,21 +3,28 @@ Configuración del admin de Django para la aplicación Bridge.
 """
 
 from django.contrib import admin
-from .models import Jugador, Torneo, ParejaTorneo
+from .models import Jugador, Torneo, ParejaTorneo, Lugar
 
 
 @admin.register(Jugador)
 class JugadorAdmin(admin.ModelAdmin):
-    list_display = ['apellido', 'nombre', 'handicap', 'categoria', 'puntos', 'cn_totales', 'activo']
-    list_filter = ['activo', 'categoria']
+    list_display = ['apellido', 'nombre', 'handicap', 'categoria', 'puntos', 'cn_totales', 'es_director', 'activo']
+    list_filter = ['activo', 'categoria', 'es_director']
     search_fields = ['nombre', 'apellido']
     ordering = ['apellido', 'nombre']
 
 
+@admin.register(Lugar)
+class LugarAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'activo']
+    list_filter = ['activo']
+    search_fields = ['nombre']
+
+
 @admin.register(Torneo)
 class TorneoAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'fecha', 'tipo', 'estado', 'cantidad_parejas']
-    list_filter = ['estado', 'tipo']
+    list_display = ['nombre', 'fecha', 'tipo', 'estado', 'director', 'lugar', 'cantidad_parejas']
+    list_filter = ['estado', 'tipo', 'lugar']
     search_fields = ['nombre']
     ordering = ['-fecha']
 

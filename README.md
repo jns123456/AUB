@@ -31,14 +31,33 @@ En un torneo de bridge, las parejas juegan en dirección **Norte-Sur (NS)** o **
 - **Re-equilibrado aleatorio**: cada ejecución genera una asignación diferente entre las soluciones igualmente óptimas
 - Visualización de promedios NS vs EO y diferencia resultante
 
+### API REST
+- Endpoints CRUD para jugadores, torneos, parejas y resultados
+- Autenticación JWT + Auth0
+- Documentación interactiva vía DRF browsable API
+- Filtrado, búsqueda y paginación integrados
+
 ## Tecnologías
+
+### Backend
 
 | Componente | Tecnología |
 |---|---|
-| Backend | Python 3 + Flask |
-| Base de datos | SQLite + SQLAlchemy |
-| Frontend | Bootstrap 5 + Jinja2 |
+| Framework web | Django 5.x |
+| API REST | Django REST Framework |
+| Base de datos (producción) | PostgreSQL |
+| Base de datos (desarrollo) | SQLite |
+| Autenticación | JWT (SimpleJWT) + Auth0 |
 | Parsing Excel | openpyxl |
+
+### Frontend
+
+| Componente | Tecnología |
+|---|---|
+| Interactividad | HTMX |
+| Reactividad | Alpine.js |
+| Estilos | TailwindCSS |
+| Iconos | Bootstrap Icons |
 
 ## Instalación
 
@@ -55,31 +74,100 @@ source venv/bin/activate        # macOS / Linux
 # Instalar dependencias
 pip install -r requirements.txt
 
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+
+# Aplicar migraciones
+python manage.py migrate
+
 # Ejecutar la aplicación
 python manage.py runserver
 ```
 
-La aplicación estará disponible en **http://127.0.0.1:5000**
+La aplicación estará disponible en **http://127.0.0.1:8000**
+
+## Configuración de Base de Datos
+
+### Desarrollo (SQLite - por defecto)
+No requiere configuración adicional. SQLite se usa automáticamente si no se define `DATABASE_URL`.
+
+### Producción (PostgreSQL)
+Definir la variable de entorno `DATABASE_URL`:
+```
+DATABASE_URL=postgres://usuario:password@host:5432/nombre_db
+```
+
+## Configuración de Auth0
+
+1. Crear una aplicación en [Auth0](https://auth0.com/)
+2. Configurar las variables en `.env`:
+```
+AUTH0_DOMAIN=tu-tenant.auth0.com
+AUTH0_CLIENT_ID=tu-client-id
+AUTH0_CLIENT_SECRET=tu-client-secret
+```
+3. En Auth0, configurar las URLs de callback:
+   - Allowed Callback URLs: `http://localhost:8000/auth/complete/auth0/`
+   - Allowed Logout URLs: `http://localhost:8000/`
+
+## API REST
+
+La API está disponible en `/api/` con los siguientes endpoints:
+
+| Endpoint | Métodos | Descripción |
+|---|---|---|
+| `/api/jugadores/` | GET, POST | Listar/crear jugadores |
+| `/api/jugadores/{id}/` | GET, PUT, DELETE | Detalle de jugador |
+| `/api/jugadores/buscar/` | GET | Búsqueda rápida |
+| `/api/torneos/` | GET, POST | Listar/crear torneos |
+| `/api/torneos/{id}/` | GET, PUT, DELETE | Detalle de torneo |
+| `/api/torneos/{id}/equilibrar/` | POST | Equilibrar torneo |
+| `/api/torneos/{id}/reset/` | POST | Resetear equilibrado |
+| `/api/parejas/` | GET, POST | Parejas de torneo |
+| `/api/resultados/` | GET | Resultados importados |
+| `/api/manos/` | GET | Manos jugadas |
+| `/api/token/` | POST | Obtener JWT |
+| `/api/token/refresh/` | POST | Refrescar JWT |
 
 ## Estructura del proyecto
 
 ```
 AUB/
-├── app.py              # Aplicación Flask principal (rutas y lógica)
-├── models.py           # Modelos SQLAlchemy (Jugador, Torneo, ParejaTorneo)
-├── algorithm.py        # Algoritmo de equilibrado de parejas
-├── requirements.txt    # Dependencias Python
+├── aub_project/
+│   ├── settings.py         # Configuración Django + DRF + Auth0
+│   ├── urls.py             # URLs raíz (admin, API, auth, frontend)
+│   ├── wsgi.py             # WSGI config
+│   └── asgi.py             # ASGI config
+├── bridge/
+│   ├── models.py           # Modelos (Jugador, Torneo, ParejaTorneo, etc.)
+│   ├── views.py            # Vistas del frontend (FBVs)
+│   ├── api_views.py        # ViewSets de la API REST
+│   ├── serializers.py      # Serializers DRF
+│   ├── urls.py             # URLs del frontend
+│   ├── api_urls.py         # URLs de la API REST
+│   ├── algorithm.py        # Algoritmo de equilibrado
+│   ├── parsers.py          # Parsers de archivos
+│   ├── admin.py            # Configuración admin
+│   └── templatetags/
+│       └── bridge_tags.py  # Template tags personalizados
+├── templates/
+│   ├── base.html           # Template base (TailwindCSS + HTMX + Alpine.js)
+│   ├── index.html          # Página principal
+│   ├── jugadores.html      # Gestión de jugadores
+│   ├── cargar_base.html    # Importación de base de handicaps
+│   ├── torneos.html        # Lista de torneos
+│   ├── torneo_nuevo.html   # Crear torneo
+│   ├── torneo_detalle.html # Detalle, parejas y equilibrado
+│   ├── torneo_acciones.html# Acciones del torneo
+│   ├── ranking.html        # Ranking anual
+│   └── ...                 # Otros templates
 ├── static/
 │   └── css/
-│       └── style.css   # Estilos personalizados
-└── templates/
-    ├── base.html             # Template base con navbar
-    ├── index.html            # Página principal
-    ├── jugadores.html        # Gestión de jugadores
-    ├── cargar_base.html      # Importación de base de handicaps
-    ├── torneos.html          # Lista de torneos
-    ├── torneo_nuevo.html     # Crear torneo
-    └── torneo_detalle.html   # Detalle, parejas y equilibrado
+│       └── style.css       # Estilos personalizados
+├── requirements.txt        # Dependencias Python
+├── .env.example            # Variables de entorno ejemplo
+└── manage.py               # Django management
 ```
 
 ## Uso rápido

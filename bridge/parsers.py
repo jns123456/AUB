@@ -134,6 +134,9 @@ def parsear_travellers(contenido: str) -> Dict:
     """
     Parsea el contenido de un archivo Travellers.txt.
     
+    Usa posiciones de columna extraídas de la línea de encabezado para
+    evitar problemas con campos opcionales (Lead, NS+, NS-).
+    
     Formato esperado:
     ```
     Asociación Uruguaya de Bridge   miércoles Pairs 11/2/2026
@@ -165,37 +168,19 @@ def parsear_travellers(contenido: str) -> Dict:
     
     # Buscar información de sesión y Neuberg top
     for linea in lineas[:10]:
-        linea = _limpiar_texto(linea)
+        linea_l = _limpiar_texto(linea)
         
-        if linea.lower().startswith('session'):
-            resultado['session'] = linea
+        if linea_l.lower().startswith('session'):
+            resultado['session'] = linea_l
         
-        match_neuberg = re.search(r'Neuberg\s+Top\s*=\s*(\d+)', linea, re.IGNORECASE)
+        match_neuberg = re.search(r'Neuberg\s+Top\s*=\s*(\d+)', linea_l, re.IGNORECASE)
         if match_neuberg:
             resultado['neuberg_top'] = int(match_neuberg.group(1))
     
-    # Parsear manos
+    # Parsear manos usando posiciones de columna
     board_actual = None
-    
-    # Patrón para línea de BOARD
     patron_board = re.compile(r'BOARD\s+(\d+)', re.IGNORECASE)
-    
-    # Patrón para línea de resultado
-    # Formato: NS EW Contract Dec Lead NS+ NS- MP MP NS_names EW_names
-    # Ejemplo:  5   8  5S-1      W           50            8       0  Carlos Zagarzazú & Jacqueline Pollak  Paula Zumarán & Jorge Rossolino
-    patron_resultado = re.compile(
-        r'^\s*(\d+)\s+'           # NS pair number
-        r'(\d+)\s+'               # EW pair number
-        r'(\S+)\s+'               # Contract (e.g., 5S-1, 3NT=, 4Dx+1)
-        r'([NSEW])\*?\s*'         # Declarer
-        r'(\S*)\s*'               # Lead (puede estar vacío)
-        r'(\d*)\s*'               # NS+ (puntos positivos para NS)
-        r'(\d*)\s*'               # NS- (puntos negativos para NS)
-        r'([\d,\.]+)\s+'          # MP NS
-        r'([\d,\.]+)\s+'          # MP EW
-        r'(.+)',                  # Nombres (resto de la línea)
-        re.IGNORECASE
-    )
+    col_pos = None  # Posiciones de columna extraídas del encabezado
     
     for linea in lineas:
         linea_limpia = _limpiar_texto(linea)
@@ -206,65 +191,185 @@ def parsear_travellers(contenido: str) -> Dict:
             board_actual = int(match_board.group(1))
             continue
         
-        # Saltar líneas de separación y headers
+        # Saltar líneas de separación y vacías
         if '===' in linea or not linea_limpia:
             continue
-        if 'NS' in linea and 'EW' in linea and 'Contract' in linea:
+        if 'printed' in linea.lower():
             continue
-            
-        # Intentar parsear como resultado
-        if board_actual is not None:
-            match = patron_resultado.match(linea_limpia)
-            if match:
-                nombres = _limpiar_texto(match.group(10))
-                
-                # Separar nombres NS y EW (están concatenados, separados por espacios)
-                # Buscar el patrón de dos parejas separadas por doble espacio o por el &
-                # El formato es: "NS_nombre1 & NS_nombre2  EW_nombre1 & EW_nombre2"
-                partes_nombres = re.split(r'\s{2,}', nombres)
-                
-                if len(partes_nombres) >= 2:
-                    nombre_ns = _limpiar_texto(partes_nombres[0])
-                    nombre_ew = _limpiar_texto(partes_nombres[1])
-                else:
-                    # Intentar separar por el segundo "&"
-                    idx_segundo_amp = nombres.find('&', nombres.find('&') + 1)
-                    if idx_segundo_amp > 0:
-                        # Buscar el espacio antes del segundo nombre
-                        parte1 = nombres[:idx_segundo_amp].strip()
-                        parte2 = nombres[idx_segundo_amp:].strip()
-                        # Encontrar dónde termina la primera pareja
-                        ultimo_espacio = parte1.rfind('  ')
-                        if ultimo_espacio > 0:
-                            nombre_ns = parte1[:ultimo_espacio].strip()
-                            nombre_ew = parte1[ultimo_espacio:].strip() + parte2
-                        else:
-                            nombre_ns = nombres
-                            nombre_ew = ''
-                    else:
-                        nombre_ns = nombres
-                        nombre_ew = ''
-                
-                ns_positivo = int(match.group(6)) if match.group(6) else None
-                ns_negativo = int(match.group(7)) if match.group(7) else None
-                
-                mano = {
-                    'board_numero': board_actual,
-                    'pareja_ns': int(match.group(1)),
-                    'pareja_ew': int(match.group(2)),
-                    'contrato': match.group(3),
-                    'declarante': match.group(4).upper(),
-                    'salida': match.group(5) if match.group(5) else None,
-                    'puntos_ns_positivo': ns_positivo,
-                    'puntos_ns_negativo': ns_negativo,
-                    'mp_ns': float(match.group(8).replace(',', '.')),
-                    'mp_ew': float(match.group(9).replace(',', '.')),
-                    'nombre_pareja_ns': nombre_ns,
-                    'nombre_pareja_ew': nombre_ew
-                }
+        
+        # Detectar línea de encabezado y extraer posiciones de columna
+        if 'Contract' in linea and ('NS+' in linea or 'NS-' in linea):
+            col_pos = _extraer_posiciones_traveller(linea)
+            continue
+        
+        # Saltar headers que no pudimos usar para posiciones
+        if 'Contract' in linea and 'Dec' in linea:
+            continue
+        
+        # Intentar parsear como línea de datos
+        if board_actual is not None and col_pos is not None:
+            mano = _parsear_linea_mano_traveller(linea, col_pos, board_actual)
+            if mano:
                 resultado['manos'].append(mano)
     
     return resultado
+
+
+def _extraer_posiciones_traveller(header: str) -> Dict:
+    """
+    Extrae las posiciones de inicio de cada columna a partir
+    de la línea de encabezado del traveller.
+    
+    Header típico:
+    ' NS  EW  Contract Dec Lead    NS+  NS-      MP      MP  NS ... EW'
+    """
+    pos = {}
+    
+    # Columnas con nombres únicos (fáciles de encontrar)
+    for col_name in ('Contract', 'Dec', 'Lead', 'NS+', 'NS-'):
+        idx = header.find(col_name)
+        if idx >= 0:
+            pos[col_name] = idx
+    
+    # Columnas MP: hay dos, después de NS-
+    buscar_desde = pos.get('NS-', 0) + 3
+    mp_indices = []
+    s = buscar_desde
+    while True:
+        idx = header.find('MP', s)
+        if idx < 0:
+            break
+        mp_indices.append(idx)
+        s = idx + 2
+    
+    if len(mp_indices) >= 2:
+        pos['MP_NS'] = mp_indices[0]
+        pos['MP_EW'] = mp_indices[1]
+    elif len(mp_indices) == 1:
+        pos['MP_NS'] = mp_indices[0]
+    
+    # Columnas de nombres (NS y EW después de las columnas MP)
+    if mp_indices:
+        s = mp_indices[-1] + 2
+        idx_ns = header.find('NS', s)
+        if idx_ns >= 0:
+            pos['Nombres_NS'] = idx_ns
+        idx_ew = header.find('EW', s)
+        if idx_ew >= 0:
+            pos['Nombres_EW'] = idx_ew
+    
+    return pos
+
+
+def _parsear_linea_mano_traveller(linea: str, pos: Dict, board_numero: int) -> Optional[Dict]:
+    """
+    Parsea una línea de datos del traveller usando posiciones de columna fijas.
+    
+    Extrae campos por posición en lugar de regex para evitar ambigüedad
+    entre Lead (opcional), NS+ (opcional) y NS- (opcional).
+    """
+    # Parsear inicio con regex: número de pareja NS, EW, contrato, declarante
+    match = re.match(r'\s*(\d+)\s+(\d+)\s+(\S+)\s+([NSEW])\*?', linea, re.IGNORECASE)
+    if not match:
+        return None
+    
+    pareja_ns = int(match.group(1))
+    pareja_ew = int(match.group(2))
+    contrato = match.group(3)
+    declarante = match.group(4).upper()
+    
+    # Extender línea con espacios si es más corta que las posiciones esperadas
+    max_pos = max(pos.values()) if pos else len(linea)
+    padded = linea.ljust(max_pos + 50)
+    
+    # Extraer Lead (entre columna Lead y NS+)
+    salida = None
+    if 'Lead' in pos and 'NS+' in pos:
+        salida_str = padded[pos['Lead']:pos['NS+']].strip()
+        if salida_str:
+            salida = salida_str
+    
+    # Extraer NS+ (entre columna NS+ y NS-)
+    ns_positivo = None
+    if 'NS+' in pos and 'NS-' in pos:
+        val = padded[pos['NS+']:pos['NS-']].strip()
+        if val:
+            try:
+                ns_positivo = int(val)
+            except ValueError:
+                pass
+    
+    # Extraer NS- (entre columna NS- y MP_NS)
+    ns_negativo = None
+    fin_ns_minus = pos.get('MP_NS', pos.get('NS-', 0) + 6)
+    if 'NS-' in pos:
+        val = padded[pos['NS-']:fin_ns_minus].strip()
+        if val:
+            try:
+                ns_negativo = int(val)
+            except ValueError:
+                pass
+    
+    # Extraer MP NS (entre columna MP_NS y MP_EW)
+    mp_ns = 0.0
+    fin_mp_ns = pos.get('MP_EW', pos.get('MP_NS', 0) + 8)
+    if 'MP_NS' in pos:
+        val = padded[pos['MP_NS']:fin_mp_ns].strip()
+        try:
+            mp_ns = float(val.replace(',', '.'))
+        except (ValueError, TypeError):
+            pass
+    
+    # Extraer MP EW (entre columna MP_EW y Nombres_NS)
+    mp_ew = 0.0
+    fin_mp_ew = pos.get('Nombres_NS', pos.get('MP_EW', 0) + 8)
+    if 'MP_EW' in pos:
+        val = padded[pos['MP_EW']:fin_mp_ew].strip()
+        try:
+            mp_ew = float(val.replace(',', '.'))
+        except (ValueError, TypeError):
+            pass
+    
+    # Extraer nombres de parejas
+    nombre_ns = ''
+    nombre_ew = ''
+    if 'Nombres_NS' in pos:
+        if 'Nombres_EW' in pos:
+            nombre_ns = _limpiar_texto(padded[pos['Nombres_NS']:pos['Nombres_EW']])
+            nombre_ew = _limpiar_texto(padded[pos['Nombres_EW']:].rstrip())
+        else:
+            rest = _limpiar_texto(padded[pos['Nombres_NS']:].rstrip())
+            partes = re.split(r'\s{2,}', rest)
+            if len(partes) >= 2:
+                nombre_ns = _limpiar_texto(partes[0])
+                nombre_ew = _limpiar_texto(partes[1])
+            else:
+                nombre_ns = rest
+    elif 'MP_EW' in pos:
+        # Fallback: extraer nombres después de MP EW
+        rest = padded[fin_mp_ew:].strip()
+        if rest:
+            partes = re.split(r'\s{2,}', rest)
+            if len(partes) >= 2:
+                nombre_ns = _limpiar_texto(partes[0])
+                nombre_ew = _limpiar_texto(partes[1])
+            else:
+                nombre_ns = _limpiar_texto(rest)
+    
+    return {
+        'board_numero': board_numero,
+        'pareja_ns': pareja_ns,
+        'pareja_ew': pareja_ew,
+        'contrato': contrato,
+        'declarante': declarante,
+        'salida': salida,
+        'puntos_ns_positivo': ns_positivo,
+        'puntos_ns_negativo': ns_negativo,
+        'mp_ns': mp_ns,
+        'mp_ew': mp_ew,
+        'nombre_pareja_ns': nombre_ns,
+        'nombre_pareja_ew': nombre_ew,
+    }
 
 
 def emparejar_jugadores(nombre_completo: str, jugadores_db: list) -> Optional[int]:

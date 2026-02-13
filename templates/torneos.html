@@ -3,59 +3,67 @@
 {% block title %}Torneos{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-trophy"></i> Torneos</h2>
-    <a href="{% url 'torneo_nuevo' %}" class="btn btn-bridge">
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-gray-800"><i class="bi bi-trophy"></i> Torneos</h2>
+    <a href="{% url 'torneo_nuevo' %}" class="inline-flex items-center gap-2 px-4 py-2 bg-bridge text-white rounded-lg hover:bg-bridge-light transition font-medium">
         <i class="bi bi-plus-circle"></i> Nuevo Torneo
     </a>
 </div>
 
 {% if torneos %}
-<div class="row g-4">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for torneo in torneos %}
-    <div class="col-md-6 col-lg-4">
-        <div class="card border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="card-title mb-0">{{ torneo.nombre }}</h5>
-                    {% if torneo.estado == 'equilibrado' %}
-                        <span class="badge bg-success">Equilibrado</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Configurando</span>
-                    {% endif %}
-                </div>
-                <p class="text-muted mb-3">
-                    <i class="bi bi-calendar"></i> {{ torneo.fecha|date:"d/m/Y" }}
-                </p>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="text-muted">
-                        <i class="bi bi-people"></i> {{ torneo.cantidad_parejas }} parejas
-                    </span>
-                    <div>
-                        <a href="{% url 'torneo_detalle' id=torneo.id %}"
-                           class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-eye"></i> Ver
-                        </a>
-                        <form action="{% url 'torneo_eliminar' id=torneo.id %}"
-                              method="POST" class="d-inline"
-                              onsubmit="return confirm('¿Eliminar el torneo {{ torneo.nombre }}?')">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>
+    <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition p-5">
+        <div class="flex justify-between items-start mb-2">
+            <h5 class="font-semibold text-gray-900 text-lg">{{ torneo.nombre }}</h5>
+            {% if torneo.estado == 'equilibrado' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Equilibrado</span>
+            {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Configurando</span>
+            {% endif %}
+        </div>
+        <p class="text-gray-500 text-sm">
+            <i class="bi bi-calendar"></i> {{ torneo.fecha|date:"d/m/Y" }}
+        </p>
+        {% if torneo.director or torneo.lugar %}
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 mt-1 mb-3">
+            {% if torneo.director %}
+            <span><i class="bi bi-person-badge text-bridge"></i> {{ torneo.director.nombre_completo }}</span>
+            {% endif %}
+            {% if torneo.lugar %}
+            <span><i class="bi bi-geo-alt text-bridge"></i> {{ torneo.lugar.nombre }}</span>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="mb-3"></div>
+        {% endif %}
+        <div class="flex justify-between items-center">
+            <span class="text-gray-500 text-sm">
+                <i class="bi bi-people"></i> {{ torneo.cantidad_parejas }} parejas
+            </span>
+            <div class="flex items-center gap-1">
+                <a href="{% url 'torneo_acciones' id=torneo.id %}"
+                   class="p-2 text-blue-500 border border-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition" title="Abrir torneo">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </a>
+                <form action="{% url 'torneo_eliminar' id=torneo.id %}"
+                      method="POST" class="inline"
+                      onsubmit="return confirm('¿Eliminar el torneo {{ torneo.nombre }}?')">
+                    {% csrf_token %}
+                    <button type="submit" class="p-2 text-red-500 border border-red-500 rounded-lg hover:bg-red-500 hover:text-white transition" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </form>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<div class="text-center p-5">
-    <i class="bi bi-trophy display-1 text-muted"></i>
-    <p class="mt-3 text-muted">No hay torneos creados aún.</p>
-    <a href="{% url 'torneo_nuevo' %}" class="btn btn-bridge">
+<div class="text-center py-16">
+    <i class="bi bi-trophy text-gray-300" style="font-size: 4rem;"></i>
+    <p class="mt-4 text-gray-500">No hay torneos creados aún.</p>
+    <a href="{% url 'torneo_nuevo' %}" class="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-bridge text-white rounded-lg hover:bg-bridge-light transition font-medium">
         <i class="bi bi-plus-circle"></i> Crear Primer Torneo
     </a>
 </div>

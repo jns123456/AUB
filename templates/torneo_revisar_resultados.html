@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Revisar Resultados - {{ torneo.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto" x-data="revisorApp()">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+            <h2 class="text-xl font-semibold text-gray-900">
+                <i class="bi bi-clipboard-check text-bridge"></i> Revisar Resultados Importados
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">{{ torneo.nombre }} · {{ torneo.fecha|date:"d/m/Y" }}</p>
+        </div>
+        <a href="{% url 'torneo_acciones' id=torneo.id %}" class="inline-flex items-center gap-1 px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            <i class="bi bi-arrow-left"></i> Volver al Menú
+        </a>
+    </div>
+
+    <!-- Info de importación -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <div class="flex items-start gap-3">
+            <i class="bi bi-info-circle text-blue-500 text-lg mt-0.5"></i>
+            <div>
+                <p class="text-sm font-medium text-blue-900">Revisá los resultados antes de confirmar</p>
+                <p class="text-xs text-blue-700 mt-1">
+                    Si el archivo no se reconoció correctamente, podés editar los valores haciendo clic en cada celda.
+                    Una vez que confirmes, el ranking se mostrará en el menú del torneo.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+            <p class="text-xs text-gray-500">Parejas</p>
+            <p class="text-xl font-bold text-gray-900">{{ rankings|length }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+            <p class="text-xs text-gray-500">Boards</p>
+            <p class="text-xl font-bold text-gray-900">{{ resultado.boards_totales|default:"—" }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+            <p class="text-xs text-gray-500">Mesas</p>
+            <p class="text-xl font-bold text-gray-900">{{ resultado.mesas|default:"—" }}</p>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-100 p-3 text-center">
+            <p class="text-xs text-gray-500">Archivo</p>
+            <p class="text-sm font-medium text-gray-700 truncate" title="{{ resultado.nombre_archivo_ranks }}">{{ resultado.nombre_archivo_ranks }}</p>
+        </div>
+    </div>
+
+    <!-- Tipo de torneo -->
+    <form method="POST" action="{% url 'torneo_confirmar_resultados' id=torneo.id %}" id="formConfirmar">
+        {% csrf_token %}
+
+        <div class="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <label class="text-sm font-medium text-gray-700">Tipo de torneo:</label>
+                <select name="tipo_torneo" class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-bridge/20 focus:border-bridge">
+                    {% for key, label in tipos_torneo.items %}
+                    <option value="{{ key }}" {% if torneo.tipo == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="bi bi-pencil-square text-amber-500"></i>
+                Hacé clic en una celda para editarla
+            </div>
+        </div>
+
+        <!-- Tabla editable -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="w-full" id="tablaResultados">
+                    <thead class="bg-gray-800 text-white">
+                        <tr>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-12">Pos</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-10">#</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase">Jugador 1</th>
+                            <th class="px-3 py-2.5 text-left text-xs font-semibold uppercase">Jugador 2</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-16">Boards</th>
+                            <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase w-20">%</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-16">HCP</th>
+                            <th class="px-3 py-2.5 text-right text-xs font-semibold uppercase w-20">% c/HCP</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-16">Pts</th>
+                            <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for r in rankings %}
+                        <tr class="hover:bg-amber-50/50 transition {% cycle 'bg-white' 'bg-gray-50/30' %}" id="row-{{ r.id }}">
+                            <td class="px-2 py-1.5 text-center">
+                                <input type="number" name="posicion_{{ r.id }}" value="{{ r.posicion }}"
+                                       class="w-full text-center text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5 text-center">
+                                <input type="number" name="numero_pareja_{{ r.id }}" value="{{ r.numero_pareja }}"
+                                       class="w-full text-center text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition text-gray-500">
+                            </td>
+                            <td class="px-2 py-1.5">
+                                <input type="text" name="nombre_jugador1_{{ r.id }}" value="{{ r.nombre_jugador1 }}"
+                                       class="w-full text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5">
+                                <input type="text" name="nombre_jugador2_{{ r.id }}" value="{{ r.nombre_jugador2 }}"
+                                       class="w-full text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5 text-center">
+                                <input type="number" name="boards_jugados_{{ r.id }}" value="{{ r.boards_jugados }}"
+                                       class="w-full text-center text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5 text-right">
+                                <input type="text" name="porcentaje_{{ r.id }}" value="{{ r.porcentaje|floatformat:2 }}"
+                                       class="w-full text-right text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5 text-center">
+                                <input type="text" name="handicap_{{ r.id }}" value="{{ r.handicap|floatformat:1 }}"
+                                       class="w-full text-center text-sm bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition text-blue-700">
+                            </td>
+                            <td class="px-2 py-1.5 text-right">
+                                <input type="text" name="porcentaje_con_handicap_{{ r.id }}" value="{{ r.porcentaje_con_handicap|floatformat:2 }}"
+                                       class="w-full text-right text-sm font-bold bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition">
+                            </td>
+                            <td class="px-2 py-1.5 text-center">
+                                <input type="text" name="puntos_asignados_{{ r.id }}" value="{{ r.puntos_asignados|floatformat:0 }}"
+                                       class="w-full text-center text-sm font-bold bg-transparent border border-transparent rounded px-1 py-0.5 focus:border-bridge focus:bg-white focus:outline-none hover:border-gray-300 transition text-green-700">
+                            </td>
+                            <td class="px-2 py-1.5 text-center">
+                                <button type="button" @click="deleteRow({{ r.id }}, $el)"
+                                        class="text-gray-300 hover:text-red-500 transition" title="Eliminar fila">
+                                    <i class="bi bi-trash3 text-xs"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- IDs de rankings -->
+        <input type="hidden" name="ranking_ids" value="{{ ranking_ids }}">
+        <input type="hidden" name="deleted_ids" x-model="deletedIds">
+
+        <!-- Barra de acciones -->
+        <div class="bg-white rounded-xl border-2 border-green-200 p-5 flex items-center justify-between flex-wrap gap-4">
+            <div>
+                <p class="font-semibold text-gray-900">
+                    <i class="bi bi-check-circle-fill text-green-600"></i> ¿Los resultados son correctos?
+                </p>
+                <p class="text-xs text-gray-500 mt-1">
+                    Al confirmar, se guardarán las ediciones y el ranking aparecerá en el menú del torneo.
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <a href="{% url 'torneo_acciones' id=torneo.id %}" class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                    <i class="bi bi-x-lg"></i> Descartar
+                </a>
+                <button type="submit" class="inline-flex items-center gap-1.5 px-6 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition shadow-sm">
+                    <i class="bi bi-check-lg"></i> Confirmar Resultados
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function revisorApp() {
+    return {
+        deletedIds: '',
+
+        deleteRow(id, el) {
+            const row = document.getElementById('row-' + id);
+            if (row) {
+                row.style.opacity = '0.3';
+                row.style.pointerEvents = 'none';
+                // Agregar a la lista de eliminados
+                const current = this.deletedIds ? this.deletedIds.split(',') : [];
+                current.push(id.toString());
+                this.deletedIds = current.join(',');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -6,14 +6,14 @@
 
 {% if not preview %}
 <!-- PASO 1: SUBIR ARCHIVO -->
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm">
-            <div class="card-header bg-bridge text-white">
-                <h4 class="mb-0"><i class="bi bi-database-up"></i> Cargar Base de Handicaps</h4>
+<div class="flex justify-center">
+    <div class="w-full max-w-3xl space-y-6">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-bridge text-white px-6 py-4">
+                <h4 class="font-semibold text-lg"><i class="bi bi-database-up"></i> Cargar Base de Handicaps</h4>
             </div>
-            <div class="card-body p-4">
-                <p class="text-muted mb-4">
+            <div class="p-6">
+                <p class="text-gray-500 mb-6">
                     Subí la base de datos histórica con los handicaps de los jugadores.
                     El sistema detecta automáticamente las columnas y te muestra una vista previa
                     antes de importar.
@@ -21,141 +21,75 @@
 
                 <form action="{% url 'cargar_base' %}" method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <!-- Drag & drop area -->
-                    <div class="upload-area p-5 text-center rounded-3 mb-4" id="uploadArea">
-                        <i class="bi bi-cloud-arrow-up display-3 text-bridge"></i>
-                        <h5 class="mt-3">Arrastrá tu archivo acá o hacé clic para seleccionar</h5>
-                        <p class="text-muted mb-3">Formatos aceptados: .csv, .xlsx</p>
-                        <input type="file" class="form-control" name="archivo" id="archivoInput"
-                               accept=".csv,.xlsx,.txt" required style="max-width: 400px; margin: 0 auto;">
-                        <div id="nombreArchivo" class="mt-2 fw-medium text-bridge" style="display:none;"></div>
+                    <div x-data="{ fileName: '' }" class="mb-6">
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-bridge transition cursor-pointer"
+                             id="uploadArea"
+                             @dragenter.prevent="$el.classList.add('border-bridge', 'bg-bridge/5')"
+                             @dragover.prevent
+                             @dragleave.prevent="$el.classList.remove('border-bridge', 'bg-bridge/5')"
+                             @drop.prevent="$el.classList.remove('border-bridge', 'bg-bridge/5'); $refs.fileInput.files = $event.dataTransfer.files; fileName = $refs.fileInput.files[0]?.name || ''"
+                             @click="$refs.fileInput.click()">
+                            <i class="bi bi-cloud-arrow-up text-bridge" style="font-size: 3rem;"></i>
+                            <h5 class="mt-3 font-semibold text-gray-700">Arrastrá tu archivo acá o hacé clic para seleccionar</h5>
+                            <p class="text-gray-400 text-sm mb-3">Formatos aceptados: .csv, .xlsx</p>
+                            <input type="file" name="archivo" x-ref="fileInput"
+                                   @change="fileName = $refs.fileInput.files[0]?.name || ''"
+                                   accept=".csv,.xlsx,.txt" required class="hidden">
+                            <div x-show="fileName" x-text="'Archivo: ' + fileName" class="mt-2 font-medium text-bridge"></div>
+                        </div>
                     </div>
-
-                    <button type="submit" class="btn btn-bridge btn-lg w-100">
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-bridge text-white rounded-lg hover:bg-bridge-light transition font-medium text-lg">
                         <i class="bi bi-eye"></i> Ver Vista Previa
                     </button>
                 </form>
             </div>
         </div>
 
-        <!-- Instrucciones del formato -->
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-header bg-white">
-                <h5 class="mb-0"><i class="bi bi-question-circle"></i> Formato del archivo</h5>
+        <!-- Instrucciones -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden" x-data="{ tab: 'combinado' }">
+            <div class="px-6 py-3 border-b border-gray-200">
+                <h5 class="font-semibold"><i class="bi bi-question-circle"></i> Formato del archivo</h5>
             </div>
-            <div class="card-body">
-                <p>El archivo puede tener <strong>2 o 3 columnas</strong>.</p>
+            <div class="p-6">
+                <p class="text-gray-600 mb-4">El archivo puede tener <strong>2 o 3 columnas</strong>.</p>
 
-                <!-- Tabs for format examples -->
-                <ul class="nav nav-tabs mb-3" role="tablist">
-                    <li class="nav-item">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#formato-combinado">
-                            Columna combinada (Apellido + Nombre)
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#formato-separado">
-                            Columnas separadas
-                        </button>
-                    </li>
-                </ul>
+                <div class="flex gap-2 mb-4">
+                    <button @click="tab = 'combinado'"
+                            :class="tab === 'combinado' ? 'bg-bridge text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                            class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                        Columna combinada
+                    </button>
+                    <button @click="tab = 'separado'"
+                            :class="tab === 'separado' ? 'bg-bridge text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                            class="px-4 py-2 rounded-lg text-sm font-medium transition">
+                        Columnas separadas
+                    </button>
+                </div>
 
-                <div class="tab-content">
-                    <!-- Formato combinado -->
-                    <div class="tab-pane fade show active" id="formato-combinado">
-                        <div class="alert alert-success small mb-3">
-                            <i class="bi bi-star-fill"></i>
-                            <strong>Formato AUB:</strong> Si tu archivo tiene una columna "Nombre"
-                            con el <strong>apellido primero y el nombre después</strong>, el sistema
-                            los separa automáticamente.
-                        </div>
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-file-earmark-spreadsheet"></i> Excel (2 columnas)</h6>
-                                <div class="bg-light p-3 rounded">
-                                    <table class="table table-sm table-bordered mb-0 small">
-                                        <thead>
-                                            <tr class="table-secondary">
-                                                <th>Nombre</th>
-                                                <th>Handicap</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr><td>Pérez, Juan</td><td>-1</td></tr>
-                                            <tr><td>González María</td><td>3.5</td></tr>
-                                            <tr><td>De Los Santos, Ana</td><td>7</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="small text-muted mt-2">
-                                    Acepta: <code>Apellido, Nombre</code> o <code>Apellido Nombre</code>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-arrow-right"></i> El sistema lo separa así:</h6>
-                                <div class="bg-light p-3 rounded">
-                                    <table class="table table-sm table-bordered mb-0 small">
-                                        <thead>
-                                            <tr class="table-secondary">
-                                                <th>Apellido</th>
-                                                <th>Nombre</th>
-                                                <th>HC</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr><td>Pérez</td><td>Juan</td><td>-1</td></tr>
-                                            <tr><td>González</td><td>María</td><td>3.5</td></tr>
-                                            <tr><td>De Los Santos</td><td>Ana</td><td>7</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                <div x-show="tab === 'combinado'">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800 mb-4">
+                        <i class="bi bi-star-fill"></i>
+                        <strong>Formato AUB:</strong> Si tu archivo tiene una columna "Nombre"
+                        con el <strong>apellido primero y el nombre después</strong>, el sistema
+                        los separa automáticamente.
                     </div>
-
-                    <!-- Formato separado -->
-                    <div class="tab-pane fade" id="formato-separado">
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-filetype-csv"></i> CSV (3 columnas)</h6>
-                                <div class="bg-light p-3 rounded font-monospace small">
-                                    nombre,apellido,handicap<br>
-                                    Juan,Pérez,-1<br>
-                                    María,González,3.5<br>
-                                    Carlos,López,7
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h6><i class="bi bi-file-earmark-spreadsheet"></i> Excel (3 columnas)</h6>
-                                <div class="bg-light p-3 rounded">
-                                    <table class="table table-sm table-bordered mb-0 small">
-                                        <thead>
-                                            <tr class="table-secondary">
-                                                <th>Nombre</th>
-                                                <th>Apellido</th>
-                                                <th>Handicap</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr><td>Juan</td><td>Pérez</td><td>-1</td></tr>
-                                            <tr><td>María</td><td>González</td><td>3.5</td></tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="text-sm text-gray-500">
+                        Acepta: <code class="bg-gray-100 px-1 rounded">Apellido, Nombre</code> o <code class="bg-gray-100 px-1 rounded">Apellido Nombre</code>
                     </div>
                 </div>
 
-                <div class="alert alert-info mt-3 mb-0 small">
+                <div x-show="tab === 'separado'">
+                    <div class="bg-gray-50 rounded-lg p-3 font-mono text-sm">
+                        nombre,apellido,handicap<br>
+                        Juan,Pérez,-1<br>
+                        María,González,3.5
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 mt-4">
                     <i class="bi bi-info-circle"></i>
-                    <strong>Detección automática de columnas:</strong><br>
-                    <strong>Nombre:</strong> nombre, name, jugador<br>
-                    <strong>Apellido:</strong> apellido, surname (si no hay, se separa del nombre)<br>
-                    <strong>Handicap:</strong> handicap, hcp, hc<br>
-                    <strong>Puntos:</strong> puntos, points, pts<br>
-                    <strong>CN Totales:</strong> cn totales, cn, campeonatos<br>
-                    <strong>Categoría:</strong> categoria, categoría, cat, nivel
+                    <strong>Detección automática:</strong>
+                    Nombre, Apellido, Handicap, Puntos, CN Totales, Categoría
                 </div>
             </div>
         </div>
@@ -164,195 +98,107 @@
 
 {% else %}
 <!-- PASO 2: VISTA PREVIA -->
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3><i class="bi bi-eye"></i> Vista Previa de Importación</h3>
-            <a href="{% url 'cargar_base' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Subir otro archivo
-            </a>
-        </div>
-
-        <!-- Resumen -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm text-center">
-                    <div class="card-body py-3">
-                        <div class="display-6 fw-bold text-bridge">{{ total }}</div>
-                        <small class="text-muted">Total encontrados</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm text-center">
-                    <div class="card-body py-3">
-                        <div class="display-6 fw-bold text-success">{{ nuevos }}</div>
-                        <small class="text-muted">Jugadores nuevos</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm text-center">
-                    <div class="card-body py-3">
-                        <div class="display-6 fw-bold text-warning">{{ actualizados }}</div>
-                        <small class="text-muted">Handicaps a actualizar</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm text-center">
-                    <div class="card-body py-3">
-                        <div class="display-6 fw-bold text-muted">{{ sin_cambios }}</div>
-                        <small class="text-muted">Sin cambios</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabla preview -->
-        <div class="card border-0 shadow-sm mb-4">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Detalle de jugadores</h5>
-                <div>
-                    <button class="btn btn-sm btn-outline-success filtro-btn active" data-filtro="todos">Todos</button>
-                    <button class="btn btn-sm btn-outline-success filtro-btn" data-filtro="nuevo">Nuevos</button>
-                    <button class="btn btn-sm btn-outline-warning filtro-btn" data-filtro="actualizar">Actualizados</button>
-                    <button class="btn btn-sm btn-outline-secondary filtro-btn" data-filtro="sin_cambios">Sin cambios</button>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-hover table-sm mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th>#</th>
-                                <th>Estado</th>
-                                <th>Nombre</th>
-                                <th>Apellido</th>
-                                <th class="text-center">HC</th>
-                                <th class="text-center">Puntos</th>
-                                <th class="text-center">CN</th>
-                                <th>Categoría</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in preview %}
-                            <tr class="fila-preview" data-estado="{{ item.estado }}">
-                                <td class="text-muted">{{ forloop.counter }}</td>
-                                <td>
-                                    {% if item.estado == 'nuevo' %}
-                                        <span class="badge bg-success">Nuevo</span>
-                                    {% elif item.estado == 'actualizar' %}
-                                        <span class="badge bg-warning text-dark">Actualizar</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Sin cambios</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ item.nombre }}</td>
-                                <td>{{ item.apellido }}</td>
-                                <td class="text-center fw-bold">
-                                    {% if item.estado == 'actualizar' %}
-                                        <span class="text-warning">{{ item.handicap }}</span>
-                                    {% elif item.estado == 'nuevo' %}
-                                        <span class="text-success">{{ item.handicap }}</span>
-                                    {% else %}
-                                        {{ item.handicap }}
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">{{ item.puntos }}</td>
-                                <td class="text-center">{{ item.cn_totales }}</td>
-                                <td>{{ item.categoria }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Botón confirmar -->
-        {% if nuevos > 0 or actualizados > 0 %}
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center p-4">
-                <form action="{% url 'cargar_base_confirmar' %}" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="datos_json" value='{{ datos_json }}'>
-                    <p class="mb-3">
-                        Se agregarán <strong class="text-success">{{ nuevos }} jugadores nuevos</strong>
-                        y se actualizarán <strong class="text-warning">{{ actualizados }} handicaps</strong>.
-                    </p>
-                    <button type="submit" class="btn btn-bridge btn-lg px-5">
-                        <i class="bi bi-check-circle"></i> Confirmar Importación
-                    </button>
-                </form>
-            </div>
-        </div>
-        {% else %}
-        <div class="alert alert-info text-center">
-            <i class="bi bi-info-circle"></i>
-            No hay cambios para realizar. Todos los jugadores ya están al día.
-        </div>
-        {% endif %}
+<div class="max-w-5xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-800"><i class="bi bi-eye"></i> Vista Previa de Importación</h3>
+        <a href="{% url 'cargar_base' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+            <i class="bi bi-arrow-left"></i> Subir otro archivo
+        </a>
     </div>
+
+    <!-- Resumen -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm text-center p-4">
+            <div class="text-3xl font-bold text-bridge">{{ total }}</div>
+            <small class="text-gray-500">Total encontrados</small>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm text-center p-4">
+            <div class="text-3xl font-bold text-green-600">{{ nuevos }}</div>
+            <small class="text-gray-500">Jugadores nuevos</small>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm text-center p-4">
+            <div class="text-3xl font-bold text-yellow-600">{{ actualizados }}</div>
+            <small class="text-gray-500">A actualizar</small>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm text-center p-4">
+            <div class="text-3xl font-bold text-gray-400">{{ sin_cambios }}</div>
+            <small class="text-gray-500">Sin cambios</small>
+        </div>
+    </div>
+
+    <!-- Tabla preview -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6" x-data="{ filtro: 'todos' }">
+        <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center flex-wrap gap-2">
+            <h5 class="font-semibold text-sm">Detalle de jugadores</h5>
+            <div class="flex gap-1">
+                <button @click="filtro = 'todos'" :class="filtro === 'todos' ? 'bg-bridge text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-medium transition">Todos</button>
+                <button @click="filtro = 'nuevo'" :class="filtro === 'nuevo' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-medium transition">Nuevos</button>
+                <button @click="filtro = 'actualizar'" :class="filtro === 'actualizar' ? 'bg-yellow-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-medium transition">Actualizados</button>
+                <button @click="filtro = 'sin_cambios'" :class="filtro === 'sin_cambios' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1 rounded-lg text-xs font-medium transition">Sin cambios</button>
+            </div>
+        </div>
+        <div class="overflow-x-auto max-h-96 overflow-y-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Nombre</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Apellido</th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">HC</th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">Puntos</th>
+                        <th class="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase">CN</th>
+                        <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Categoría</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in preview %}
+                    <tr x-show="filtro === 'todos' || filtro === '{{ item.estado }}'" class="hover:bg-gray-50 transition">
+                        <td class="px-3 py-2 text-gray-400 text-sm">{{ forloop.counter }}</td>
+                        <td class="px-3 py-2">
+                            {% if item.estado == 'nuevo' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Nuevo</span>
+                            {% elif item.estado == 'actualizar' %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Actualizar</span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Sin cambios</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-sm">{{ item.nombre }}</td>
+                        <td class="px-3 py-2 text-sm">{{ item.apellido }}</td>
+                        <td class="px-3 py-2 text-center text-sm font-bold {% if item.estado == 'actualizar' %}text-yellow-600{% elif item.estado == 'nuevo' %}text-green-600{% endif %}">{{ item.handicap }}</td>
+                        <td class="px-3 py-2 text-center text-sm">{{ item.puntos }}</td>
+                        <td class="px-3 py-2 text-center text-sm">{{ item.cn_totales }}</td>
+                        <td class="px-3 py-2 text-sm">{{ item.categoria }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Botón confirmar -->
+    {% if nuevos > 0 or actualizados > 0 %}
+    <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+        <form action="{% url 'cargar_base_confirmar' %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="datos_json" value='{{ datos_json }}'>
+            <p class="mb-4 text-gray-700">
+                Se agregarán <strong class="text-green-600">{{ nuevos }} jugadores nuevos</strong>
+                y se actualizarán <strong class="text-yellow-600">{{ actualizados }} handicaps</strong>.
+            </p>
+            <button type="submit" class="inline-flex items-center gap-2 px-8 py-3 bg-bridge text-white rounded-lg hover:bg-bridge-light transition font-medium text-lg">
+                <i class="bi bi-check-circle"></i> Confirmar Importación
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center text-blue-800">
+        <i class="bi bi-info-circle"></i>
+        No hay cambios para realizar. Todos los jugadores ya están al día.
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Mostrar nombre del archivo seleccionado
-    const archivoInput = document.getElementById('archivoInput');
-    if (archivoInput) {
-        archivoInput.addEventListener('change', function() {
-            const nombre = this.files[0]?.name;
-            const nombreDiv = document.getElementById('nombreArchivo');
-            if (nombre) {
-                nombreDiv.textContent = 'Archivo seleccionado: ' + nombre;
-                nombreDiv.style.display = 'block';
-            }
-        });
-    }
-
-    // Drag & drop visual feedback
-    const uploadArea = document.getElementById('uploadArea');
-    if (uploadArea) {
-        ['dragenter', 'dragover'].forEach(event => {
-            uploadArea.addEventListener(event, (e) => {
-                e.preventDefault();
-                uploadArea.classList.add('drag-over');
-            });
-        });
-        ['dragleave', 'drop'].forEach(event => {
-            uploadArea.addEventListener(event, (e) => {
-                e.preventDefault();
-                uploadArea.classList.remove('drag-over');
-            });
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                archivoInput.files = files;
-                archivoInput.dispatchEvent(new Event('change'));
-            }
-        });
-    }
-
-    // Filtros en la vista previa
-    document.querySelectorAll('.filtro-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-
-            const filtro = this.dataset.filtro;
-            document.querySelectorAll('.fila-preview').forEach(fila => {
-                if (filtro === 'todos' || fila.dataset.estado === filtro) {
-                    fila.style.display = '';
-                } else {
-                    fila.style.display = 'none';
-                }
-            });
-        });
-    });
-</script>
 {% endblock %}
