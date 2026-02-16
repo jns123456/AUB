@@ -15,6 +15,7 @@ class Jugador(models.Model):
     puntos = models.FloatField(null=True, blank=True, default=0)
     cn_totales = models.IntegerField(null=True, blank=True, default=0)
     categoria = models.CharField(max_length=50, null=True, blank=True, default='')
+    foto = models.ImageField(upload_to='jugadores/fotos/', null=True, blank=True, verbose_name='Foto de perfil')
     es_director = models.BooleanField(default=False, verbose_name='Autorizado como Director')
     activo = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

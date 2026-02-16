@@ -12,6 +12,8 @@ urlpatterns = [
     # Jugadores
     path('jugadores/', views.jugadores, name='jugadores'),
     path('jugadores/nuevo/', views.jugador_nuevo, name='jugador_nuevo'),
+    path('jugadores/<int:id>/perfil/', views.jugador_perfil, name='jugador_perfil'),
+    path('jugadores/<int:id>/foto/', views.jugador_foto, name='jugador_foto'),
     path('jugadores/<int:id>/editar/', views.jugador_editar, name='jugador_editar'),
     path('jugadores/<int:id>/eliminar/', views.jugador_eliminar, name='jugador_eliminar'),
     path('jugadores/eliminar-todos/', views.jugadores_eliminar_todos, name='jugadores_eliminar_todos'),

@@ -63,7 +63,9 @@
                         {% endif %}
                     </td>
                     <td class="px-3 py-3">
-                        <span class="font-semibold text-gray-900">{{ item.jugador.apellido }}, {{ item.jugador.nombre }}</span>
+                        <a href="{% url 'jugador_perfil' id=item.jugador.id %}" class="font-semibold text-gray-900 hover:text-bridge transition">
+                            {{ item.jugador.apellido }}, {{ item.jugador.nombre }}
+                        </a>
                     </td>
                     <td class="px-3 py-3 text-center">
                         {% if item.jugador.categoria %}

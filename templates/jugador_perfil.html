@@ -1,0 +1,510 @@
+{% extends "base.html" %}
+{% load l10n %}
+
+{% block title %}{{ jugador.nombre_completo }} - Perfil{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-4 text-sm text-gray-500">
+    <a href="{% url 'jugadores' %}" class="hover:text-bridge transition">Jugadores</a>
+    <i class="bi bi-chevron-right text-xs mx-1"></i>
+    <span class="text-gray-800 font-medium">{{ jugador.nombre_completo }}</span>
+</nav>
+
+<!-- Header del perfil -->
+<div class="bg-white rounded-xl shadow-sm mb-6">
+    <div class="bg-gradient-to-r from-bridge to-bridge-light px-6 py-8 rounded-xl">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <!-- Avatar con foto -->
+                <div x-data="{ showMenu: false }" class="relative group">
+                    {% if jugador.foto %}
+                    <img src="{{ jugador.foto.url }}" alt="{{ jugador.nombre_completo }}"
+                         class="w-20 h-20 rounded-full object-cover border-2 border-white/30 shadow-lg">
+                    {% else %}
+                    <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-white text-3xl font-bold backdrop-blur-sm border-2 border-white/30">
+                        {{ jugador.nombre.0 }}{{ jugador.apellido.0 }}
+                    </div>
+                    {% endif %}
+                    <!-- Botón de cámara overlay -->
+                    <button @click="showMenu = !showMenu"
+                            class="absolute inset-0 w-20 h-20 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all cursor-pointer">
+                        <i class="bi bi-camera-fill text-white text-lg opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    </button>
+                    <!-- Menú de opciones -->
+                    <div x-show="showMenu" @click.outside="showMenu = false" x-transition
+                         class="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-[100] w-48"
+                         style="display: none;">
+                        <form action="{% url 'jugador_foto' id=jugador.id %}" method="POST" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <label class="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition">
+                                <i class="bi bi-upload text-bridge"></i>
+                                {% if jugador.foto %}Cambiar foto{% else %}Subir foto{% endif %}
+                                <input type="file" name="foto" accept="image/jpeg,image/png,image/webp"
+                                       class="hidden" onchange="this.form.submit()">
+                            </label>
+                        </form>
+                        {% if jugador.foto %}
+                        <form action="{% url 'jugador_foto' id=jugador.id %}" method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="accion" value="eliminar">
+                            <button type="submit" class="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition">
+                                <i class="bi bi-trash"></i> Eliminar foto
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-white">
+                        {{ jugador.nombre }} {{ jugador.apellido }}
+                        {% if jugador.es_director %}
+                        <i class="bi bi-person-badge text-yellow-300 text-xl ml-1" title="Director autorizado"></i>
+                        {% endif %}
+                    </h1>
+                    <div class="flex flex-wrap items-center gap-3 mt-2">
+                        {% if jugador.categoria %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
+                            {% if jugador.categoria == 'GM' or jugador.categoria == 'GRAN MAESTRO' or jugador.categoria == 'MAESTRO' %}bg-yellow-400 text-gray-900
+                            {% elif jugador.categoria == 'SUPERIOR' %}bg-blue-400 text-white
+                            {% elif jugador.categoria == 'PRIMERA' %}bg-green-400 text-white
+                            {% else %}bg-white/30 text-white{% endif %}">
+                            {{ jugador.categoria }}
+                        </span>
+                        {% endif %}
+                        <span class="text-white/80 text-sm">
+                            <i class="bi bi-hash"></i> HC: {{ jugador.handicap }}
+                        </span>
+                        <span class="text-white/80 text-sm">
+                            <i class="bi bi-star-fill text-yellow-300"></i> {{ jugador.puntos|default:0 }} pts
+                        </span>
+                        {% if jugador.cn_totales %}
+                        <span class="text-white/80 text-sm">
+                            <i class="bi bi-award"></i> {{ jugador.cn_totales }} CN
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'jugadores' %}" class="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition text-sm font-medium backdrop-blur-sm">
+                    <i class="bi bi-arrow-left"></i> Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tarjetas de resumen -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-4 text-center">
+        <div class="text-3xl font-bold text-bridge">{{ total_torneos }}</div>
+        <div class="text-xs text-gray-500 mt-1">Torneos Jugados</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 text-center">
+        <div class="text-3xl font-bold text-yellow-600">{{ victorias }}</div>
+        <div class="text-xs text-gray-500 mt-1">Victorias</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 text-center">
+        <div class="text-3xl font-bold text-orange-500">{{ podios }}</div>
+        <div class="text-xs text-gray-500 mt-1">Podios (Top 3)</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 text-center">
+        <div class="text-3xl font-bold text-blue-600">{{ puntos_totales_torneos }}</div>
+        <div class="text-xs text-gray-500 mt-1">Pts Totales Torneos</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 text-center">
+        <div class="text-3xl font-bold text-purple-600">{{ promedio_puntos }}</div>
+        <div class="text-xs text-gray-500 mt-1">Promedio Pts/Torneo</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Columna izquierda: Estadísticas detalladas -->
+    <div class="lg:col-span-1 space-y-6">
+
+        <!-- Rendimiento -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-bridge text-white px-4 py-3">
+                <h3 class="font-semibold text-sm"><i class="bi bi-graph-up"></i> Rendimiento</h3>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-sm text-gray-600">Promedio posición</span>
+                    <span class="font-semibold text-gray-800">{% if promedio_posicion %}{{ promedio_posicion }}°{% else %}-{% endif %}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-sm text-gray-600">Promedio Pts/Torneo</span>
+                    <span class="font-semibold text-purple-600">{{ promedio_puntos }}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-sm text-gray-600">Promedio porcentaje</span>
+                    <span class="font-semibold text-gray-800">{% if promedio_porcentaje %}{{ promedio_porcentaje }}%{% else %}-{% endif %}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-sm text-gray-600">Mejor porcentaje</span>
+                    <span class="font-semibold text-bridge">{% if mejor_porcentaje %}{{ mejor_porcentaje }}%{% else %}-{% endif %}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm text-gray-600">Pts últimos 5 torneos</span>
+                    <span class="font-semibold text-purple-600">{{ puntos_ultimos_5 }} <span class="text-xs text-gray-400">(prom: {{ promedio_ultimos_5 }})</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direcciones jugadas -->
+        {% if total_ns or total_eo %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="font-semibold text-sm"><i class="bi bi-compass"></i> Direcciones Jugadas</h3>
+            </div>
+            <div class="p-4">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="flex-1">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="font-medium text-ns">Norte-Sur</span>
+                            <span class="text-gray-500">{{ total_ns }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            {% widthratio total_ns total_ns|add:total_eo 100 as pct_ns %}
+                            <div class="bg-ns h-3 rounded-full transition-all" style="width: {% widthratio total_ns total_ns|add:total_eo 100 %}%"></div>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="font-medium text-eo">Este-Oeste</span>
+                            <span class="text-gray-500">{{ total_eo }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="bg-eo h-3 rounded-full transition-all" style="width: {% widthratio total_eo total_ns|add:total_eo 100 %}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Estadísticas por tipo de torneo -->
+        {% if stats_por_tipo %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="font-semibold text-sm"><i class="bi bi-bar-chart-fill"></i> Por Tipo de Torneo</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for stat in stats_por_tipo %}
+                <div class="p-4">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-sm font-medium text-gray-800">{{ stat.tipo }}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-bridge/10 text-bridge">{{ stat.cantidad }}x</span>
+                    </div>
+                    <div class="flex gap-4 text-xs text-gray-500 mt-1">
+                        <span><i class="bi bi-star-fill text-yellow-500"></i> {{ stat.puntos }} pts</span>
+                        {% if stat.mejor_posicion %}<span><i class="bi bi-trophy-fill text-orange-400"></i> Mejor: {{ stat.mejor_posicion }}°</span>{% endif %}
+                        {% if stat.promedio_posicion %}<span>Prom: {{ stat.promedio_posicion }}°</span>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Columna derecha: Compañeros y Historial -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Compañeros más frecuentes -->
+        {% if top_companeros %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-bridge text-white px-4 py-3">
+                <h3 class="font-semibold text-sm"><i class="bi bi-people-fill"></i> Compañeros Más Frecuentes</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Compañero</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Torneos Juntos</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pts Juntos</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Mejor Pos.</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Prom. Pos.</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for comp in top_companeros %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-4 py-3">
+                                <a href="{% url 'jugador_perfil' id=comp.jugador.id %}" class="text-sm font-medium text-bridge hover:underline">
+                                    {{ comp.jugador.nombre_completo }}
+                                </a>
+                                <span class="text-xs text-gray-400 ml-1">HC: {{ comp.jugador.handicap }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bridge/10 text-bridge">{{ comp.cantidad }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-center text-sm font-medium text-gray-700">{{ comp.puntos_juntos }}</td>
+                            <td class="px-4 py-3 text-center">
+                                {% if comp.mejor_posicion %}
+                                <span class="text-sm font-medium {% if comp.mejor_posicion <= 3 %}text-yellow-600{% else %}text-gray-700{% endif %}">
+                                    {{ comp.mejor_posicion }}°
+                                </span>
+                                {% else %}<span class="text-gray-400">-</span>{% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-center text-sm text-gray-600">{% if comp.promedio_posicion %}{{ comp.promedio_posicion }}°{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Gráfico de evolución -->
+        {% if historial %}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold text-sm"><i class="bi bi-graph-up-arrow"></i> Evolución de Puntos</h3>
+                <div class="flex gap-2">
+                    <button id="btn-grafico-puntos" class="px-3 py-1 text-xs font-medium bg-bridge text-white rounded-lg">Puntos</button>
+                    <button id="btn-grafico-posicion" class="px-3 py-1 text-xs font-medium border border-bridge text-bridge rounded-lg hover:bg-bridge hover:text-white transition">Posición</button>
+                </div>
+            </div>
+            <div class="p-4">
+                <canvas id="grafico-evolucion" height="200"></canvas>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Historial de torneos -->
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="font-semibold text-sm"><i class="bi bi-clock-history"></i> Historial de Torneos</h3>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{{ total_torneos }} torneos</span>
+            </div>
+            {% if historial %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Fecha</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Torneo</th>
+                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Compañero</th>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pos.</th>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase">%</th>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Dir.</th>
+                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for h in historial %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-3 py-2.5 text-sm text-gray-500 whitespace-nowrap">{{ h.fecha|date:"d/m/Y" }}</td>
+                            <td class="px-3 py-2.5">
+                                <a href="{% url 'torneo_acciones' id=h.torneo.id %}" class="text-sm font-medium text-bridge hover:underline">
+                                    {{ h.torneo.nombre }}
+                                </a>
+                                <div class="text-xs text-gray-400">{{ h.tipo }}</div>
+                            </td>
+                            <td class="px-3 py-2.5">
+                                {% if h.companero %}
+                                <a href="{% url 'jugador_perfil' id=h.companero.id %}" class="text-sm text-blue-600 hover:underline">
+                                    {{ h.nombre_companero }}
+                                </a>
+                                {% else %}
+                                <span class="text-sm text-gray-400">{{ h.nombre_companero|default:"-" }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                                {% if h.posicion %}
+                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold
+                                    {% if h.posicion == 1 %}bg-yellow-100 text-yellow-700
+                                    {% elif h.posicion == 2 %}bg-gray-200 text-gray-700
+                                    {% elif h.posicion == 3 %}bg-orange-100 text-orange-700
+                                    {% elif h.posicion <= 5 %}bg-blue-50 text-blue-700
+                                    {% else %}bg-gray-50 text-gray-600{% endif %}">
+                                    {{ h.posicion }}°
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2.5 text-center text-sm">
+                                {% if h.porcentaje %}
+                                <span class="{% if h.porcentaje >= 55 %}text-green-600 font-medium{% elif h.porcentaje >= 50 %}text-gray-700{% else %}text-red-500{% endif %}">
+                                    {{ h.porcentaje }}%
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                                {% if h.direccion %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold
+                                    {% if h.direccion == 'NS' %}bg-ns/10 text-ns{% else %}bg-eo/10 text-eo{% endif %}">
+                                    {{ h.direccion }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                                {% if h.puntos_ranking %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                                    +{{ h.puntos_ranking }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-400 text-sm">0</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-gray-400">
+                <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
+                <p class="mt-3 text-gray-500">Este jugador no tiene torneos registrados aún.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const datosRaw = {{ datos_grafico_json|safe }};
+    if (!datosRaw || datosRaw.length === 0) return;
+
+    const ctx = document.getElementById('grafico-evolucion');
+    if (!ctx) return;
+
+    const labels = datosRaw.map(d => {
+        const f = new Date(d.fecha);
+        return f.toLocaleDateString('es-UY', { day: '2-digit', month: 'short' });
+    });
+    const puntosData = datosRaw.map(d => d.puntos || 0);
+    const posicionData = datosRaw.map(d => d.posicion);
+    const torneoNames = datosRaw.map(d => d.torneo);
+
+    let chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Puntos',
+                data: puntosData,
+                backgroundColor: 'rgba(26, 92, 56, 0.7)',
+                borderColor: '#1a5c38',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function(items) { return torneoNames[items[0].dataIndex]; },
+                        label: function(item) { return 'Puntos: ' + item.raw; }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    const btnPuntos = document.getElementById('btn-grafico-puntos');
+    const btnPosicion = document.getElementById('btn-grafico-posicion');
+
+    function setActiveBtn(active, inactive) {
+        active.className = 'px-3 py-1 text-xs font-medium bg-bridge text-white rounded-lg';
+        inactive.className = 'px-3 py-1 text-xs font-medium border border-bridge text-bridge rounded-lg hover:bg-bridge hover:text-white transition';
+    }
+
+    btnPuntos.addEventListener('click', function() {
+        chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Puntos',
+                    data: puntosData,
+                    backgroundColor: 'rgba(26, 92, 56, 0.7)',
+                    borderColor: '#1a5c38',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function(items) { return torneoNames[items[0].dataIndex]; },
+                            label: function(item) { return 'Puntos: ' + item.raw; }
+                        }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+        setActiveBtn(btnPuntos, btnPosicion);
+    });
+
+    btnPosicion.addEventListener('click', function() {
+        chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Posición',
+                    data: posicionData,
+                    borderColor: '#dc2626',
+                    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#dc2626',
+                    pointRadius: 5,
+                    fill: true,
+                    tension: 0.3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function(items) { return torneoNames[items[0].dataIndex]; },
+                            label: function(item) { return 'Posición: ' + item.raw + '°'; }
+                        }
+                    }
+                },
+                scales: {
+                    y: { reverse: true, beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' },
+                         ticks: { callback: function(val) { return val + '°'; } } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+        setActiveBtn(btnPosicion, btnPuntos);
+    });
+})();
+</script>
+{% endblock %}

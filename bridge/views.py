@@ -59,6 +59,18 @@ TABLAS_PUNTOS = {
     'paralelo': [20, 15, 10, 5, 3],
 }
 
+CATEGORIAS = [
+    'GRAN MAESTRO',
+    'MAESTRO',
+    'SUPERIOR',
+    'PRIMERA',
+    'SEGUNDA',
+    'TERCERA',
+    'CUARTA',
+    'QUINTA',
+    'PRINCIPIANTE',
+]
+
 TIPOS_TORNEO = {
     'handicap': 'Parejas con Hándicap (Art. 38)',
     'handicap_clubes_6': 'Hándicap Clubes 6+ mesas (Art. 38.B)',
@@ -108,10 +120,30 @@ def index(request):
     # Último torneo
     ultimo_torneo = Torneo.objects.order_by('-fecha').first()
 
-    # Top jugadores por puntos
+    # Top jugadores ordenados por criterio AUB:
+    # 1. Categoría (GM > Maestro > Superior > Primera > ...)
+    # 2. Puntaje AUB histórico (descendente)
+    # 3. Cantidad de campeonatos nacionales (descendente)
+    categoria_orden = Case(
+        When(categoria__iexact='GRAN MAESTRO', then=Value(0)),
+        When(categoria__iexact='GM', then=Value(0)),
+        When(categoria__iexact='MAESTRO', then=Value(1)),
+        When(categoria__iexact='SUPERIOR', then=Value(2)),
+        When(categoria__iexact='PRIMERA', then=Value(3)),
+        When(categoria__iexact='SEGUNDA', then=Value(4)),
+        When(categoria__iexact='TERCERA', then=Value(5)),
+        When(categoria__iexact='CUARTA', then=Value(6)),
+        When(categoria__iexact='QUINTA', then=Value(7)),
+        When(categoria__iexact='PRINCIPIANTES', then=Value(8)),
+        When(categoria__iexact='PRINCIPIANTE', then=Value(8)),
+        default=Value(99),
+        output_field=IntegerField(),
+    )
     top_jugadores = Jugador.objects.filter(
         activo=True, puntos__gt=0
-    ).order_by('-puntos')[:5]
+    ).annotate(
+        categoria_orden=categoria_orden
+    ).order_by('categoria_orden', '-puntos', '-cn_totales')[:5]
 
     # Promedio de handicap general
     promedio_handicap = Jugador.objects.filter(activo=True).aggregate(
@@ -158,8 +190,284 @@ def jugadores(request):
     lista = Jugador.objects.filter(activo=True).annotate(
         categoria_orden=categoria_orden
     ).order_by('categoria_orden', '-puntos', 'apellido', 'nombre')
+
+    # Calcular Puntos 2026 para cada jugador
+    puntos_2026 = _calcular_puntos_anio(2026)
+
+    # Anotar puntos_2026 como atributo en cada jugador
+    for jugador in lista:
+        jugador.puntos_2026 = puntos_2026.get(jugador.id, 0)
     
-    return render(request, 'jugadores.html', {'jugadores': lista})
+    return render(request, 'jugadores.html', {'jugadores': lista, 'categorias': CATEGORIAS})
+
+
+def jugador_perfil(request, id):
+    """Perfil detallado de un jugador con estadísticas completas."""
+    from django.db.models import Avg, Count, Sum, Min, Max, F, Q
+    from collections import Counter
+
+    jugador = get_object_or_404(Jugador, id=id)
+
+    # =========================================================================
+    # 1. HISTORIAL DE TORNEOS (desde ParejaTorneo y RankingImportado)
+    # =========================================================================
+    historial_torneos = []
+    torneos_ids_vistos = set()
+
+    # Fuente 1: Resultados importados confirmados (RankingImportado)
+    rankings_j = RankingImportado.objects.filter(
+        Q(jugador1=jugador) | Q(jugador2=jugador),
+        resultado__confirmado=True,
+    ).select_related('resultado__torneo')
+
+    for ri in rankings_j:
+        torneo_obj = ri.resultado.torneo
+        if torneo_obj.id in torneos_ids_vistos:
+            continue
+        torneos_ids_vistos.add(torneo_obj.id)
+
+        # Identificar compañero
+        if ri.jugador1_id == jugador.id:
+            companero = ri.jugador2
+            nombre_companero = ri.nombre_jugador2
+        else:
+            companero = ri.jugador1
+            nombre_companero = ri.nombre_jugador1
+
+        tipo_label = TIPOS_TORNEO.get(torneo_obj.tipo, torneo_obj.tipo or 'Handicap')
+
+        historial_torneos.append({
+            'torneo': torneo_obj,
+            'fecha': torneo_obj.fecha,
+            'tipo': tipo_label,
+            'posicion': ri.posicion,
+            'total_parejas': ri.resultado.rankings.count(),
+            'porcentaje': ri.porcentaje,
+            'porcentaje_con_handicap': ri.porcentaje_con_handicap,
+            'puntos_ranking': ri.puntos_asignados or 0,
+            'companero': companero,
+            'nombre_companero': nombre_companero,
+            'direccion': '',
+            'fuente': 'importado',
+        })
+
+    # Fuente 2: Parejas del equilibrador manual (ParejaTorneo)
+    parejas_j = ParejaTorneo.objects.filter(
+        Q(jugador1=jugador) | Q(jugador2=jugador)
+    ).select_related('torneo', 'jugador1', 'jugador2')
+
+    for pareja in parejas_j:
+        torneo_obj = pareja.torneo
+        if torneo_obj.id in torneos_ids_vistos:
+            continue
+        torneos_ids_vistos.add(torneo_obj.id)
+
+        if pareja.jugador1_id == jugador.id:
+            companero = pareja.jugador2
+        else:
+            companero = pareja.jugador1
+
+        tipo_label = TIPOS_TORNEO.get(torneo_obj.tipo, torneo_obj.tipo or 'Handicap')
+
+        historial_torneos.append({
+            'torneo': torneo_obj,
+            'fecha': torneo_obj.fecha,
+            'tipo': tipo_label,
+            'posicion': pareja.posicion_final,
+            'total_parejas': torneo_obj.cantidad_parejas,
+            'porcentaje': pareja.porcentaje,
+            'porcentaje_con_handicap': None,
+            'puntos_ranking': pareja.puntos_ranking or 0,
+            'companero': companero,
+            'nombre_companero': companero.nombre_completo if companero else '',
+            'direccion': pareja.direccion or '',
+            'fuente': 'manual',
+        })
+
+    # Ordenar historial por fecha descendente
+    historial_torneos.sort(key=lambda x: x['fecha'], reverse=True)
+
+    # =========================================================================
+    # 2. ESTADÍSTICAS GENERALES
+    # =========================================================================
+    total_torneos = len(historial_torneos)
+
+    # Puntos totales ganados en torneos
+    puntos_totales_torneos = sum(h['puntos_ranking'] for h in historial_torneos)
+
+    # Promedio de puntos por torneo
+    promedio_puntos = round(puntos_totales_torneos / total_torneos, 2) if total_torneos > 0 else 0
+
+    # Posiciones (solo donde hay posición definida)
+    posiciones = [h['posicion'] for h in historial_torneos if h['posicion'] is not None]
+    mejor_posicion = min(posiciones) if posiciones else None
+    peor_posicion = max(posiciones) if posiciones else None
+    promedio_posicion = round(sum(posiciones) / len(posiciones), 1) if posiciones else None
+
+    # Porcentajes
+    porcentajes = [h['porcentaje'] for h in historial_torneos if h['porcentaje'] is not None]
+    promedio_porcentaje = round(sum(porcentajes) / len(porcentajes), 2) if porcentajes else None
+    mejor_porcentaje = max(porcentajes) if porcentajes else None
+
+    # Podios y victorias
+    victorias = sum(1 for p in posiciones if p == 1)
+    podios = sum(1 for p in posiciones if p <= 3)
+    top5 = sum(1 for p in posiciones if p <= 5)
+
+    # Direcciones jugadas
+    direcciones = [h['direccion'] for h in historial_torneos if h['direccion']]
+    total_ns = sum(1 for d in direcciones if d == 'NS')
+    total_eo = sum(1 for d in direcciones if d == 'EO')
+
+    # =========================================================================
+    # 3. COMPAÑEROS MÁS FRECUENTES
+    # =========================================================================
+    companeros_counter = Counter()
+    companeros_info = {}
+    companeros_puntos = Counter()
+    companeros_posiciones = {}
+
+    for h in historial_torneos:
+        comp = h['companero']
+        if comp is None:
+            continue
+        comp_id = comp.id
+        companeros_counter[comp_id] += 1
+        companeros_puntos[comp_id] += h['puntos_ranking']
+        if comp_id not in companeros_info:
+            companeros_info[comp_id] = comp
+            companeros_posiciones[comp_id] = []
+        if h['posicion'] is not None:
+            companeros_posiciones[comp_id].append(h['posicion'])
+
+    top_companeros = []
+    for comp_id, cantidad in companeros_counter.most_common(10):
+        comp = companeros_info[comp_id]
+        posiciones_comp = companeros_posiciones.get(comp_id, [])
+        mejor = min(posiciones_comp) if posiciones_comp else None
+        promedio = round(sum(posiciones_comp) / len(posiciones_comp), 1) if posiciones_comp else None
+        top_companeros.append({
+            'jugador': comp,
+            'cantidad': cantidad,
+            'puntos_juntos': companeros_puntos[comp_id],
+            'mejor_posicion': mejor,
+            'promedio_posicion': promedio,
+        })
+
+    # =========================================================================
+    # 4. RACHA Y TENDENCIA
+    # =========================================================================
+    # Últimos 5 torneos para tendencia
+    ultimos_5 = historial_torneos[:5]
+    puntos_ultimos_5 = sum(h['puntos_ranking'] for h in ultimos_5)
+    promedio_ultimos_5 = round(puntos_ultimos_5 / len(ultimos_5), 2) if ultimos_5 else 0
+
+    # Datos para gráfico de evolución (puntos por torneo, cronológico)
+    datos_grafico = []
+    for h in reversed(historial_torneos):
+        datos_grafico.append({
+            'fecha': h['fecha'].isoformat(),
+            'torneo': h['torneo'].nombre,
+            'puntos': h['puntos_ranking'],
+            'posicion': h['posicion'],
+            'porcentaje': h['porcentaje'],
+        })
+    datos_grafico_json = json.dumps(datos_grafico)
+
+    # =========================================================================
+    # 5. ESTADÍSTICAS POR TIPO DE TORNEO
+    # =========================================================================
+    stats_por_tipo = {}
+    for h in historial_torneos:
+        tipo = h['tipo']
+        if tipo not in stats_por_tipo:
+            stats_por_tipo[tipo] = {
+                'tipo': tipo,
+                'cantidad': 0,
+                'puntos': 0,
+                'posiciones': [],
+            }
+        stats_por_tipo[tipo]['cantidad'] += 1
+        stats_por_tipo[tipo]['puntos'] += h['puntos_ranking']
+        if h['posicion'] is not None:
+            stats_por_tipo[tipo]['posiciones'].append(h['posicion'])
+
+    for key in stats_por_tipo:
+        s = stats_por_tipo[key]
+        pos = s['posiciones']
+        s['mejor_posicion'] = min(pos) if pos else None
+        s['promedio_posicion'] = round(sum(pos) / len(pos), 1) if pos else None
+        s['promedio_puntos'] = round(s['puntos'] / s['cantidad'], 2) if s['cantidad'] > 0 else 0
+
+    stats_por_tipo_list = sorted(stats_por_tipo.values(), key=lambda x: x['cantidad'], reverse=True)
+
+    return render(request, 'jugador_perfil.html', {
+        'jugador': jugador,
+        'historial': historial_torneos,
+        'total_torneos': total_torneos,
+        'puntos_totales_torneos': puntos_totales_torneos,
+        'promedio_puntos': promedio_puntos,
+        'mejor_posicion': mejor_posicion,
+        'peor_posicion': peor_posicion,
+        'promedio_posicion': promedio_posicion,
+        'promedio_porcentaje': promedio_porcentaje,
+        'mejor_porcentaje': mejor_porcentaje,
+        'victorias': victorias,
+        'podios': podios,
+        'top5': top5,
+        'total_ns': total_ns,
+        'total_eo': total_eo,
+        'top_companeros': top_companeros,
+        'puntos_ultimos_5': puntos_ultimos_5,
+        'promedio_ultimos_5': promedio_ultimos_5,
+        'datos_grafico_json': datos_grafico_json,
+        'stats_por_tipo': stats_por_tipo_list,
+    })
+
+
+def jugador_foto(request, id):
+    """Subir o eliminar la foto de perfil de un jugador."""
+    if request.method != 'POST':
+        return redirect('jugador_perfil', id=id)
+
+    jugador = get_object_or_404(Jugador, id=id)
+
+    accion = request.POST.get('accion', 'subir')
+
+    if accion == 'eliminar':
+        if jugador.foto:
+            jugador.foto.delete(save=False)
+            jugador.foto = None
+            jugador.save()
+            messages.success(request, 'Foto eliminada.')
+        return redirect('jugador_perfil', id=id)
+
+    # Subir foto
+    foto = request.FILES.get('foto')
+    if not foto:
+        messages.error(request, 'No se seleccionó ninguna foto.')
+        return redirect('jugador_perfil', id=id)
+
+    # Validar tipo de archivo
+    tipos_permitidos = ['image/jpeg', 'image/png', 'image/webp']
+    if foto.content_type not in tipos_permitidos:
+        messages.error(request, 'Formato no soportado. Usá JPG, PNG o WebP.')
+        return redirect('jugador_perfil', id=id)
+
+    # Validar tamaño (máximo 5 MB)
+    if foto.size > 5 * 1024 * 1024:
+        messages.error(request, 'La foto es demasiado grande. Máximo 5 MB.')
+        return redirect('jugador_perfil', id=id)
+
+    # Eliminar foto anterior si existe
+    if jugador.foto:
+        jugador.foto.delete(save=False)
+
+    jugador.foto = foto
+    jugador.save()
+
+    messages.success(request, 'Foto actualizada correctamente.')
+    return redirect('jugador_perfil', id=id)
 
 
 def jugador_nuevo(request):
@@ -386,6 +694,52 @@ def api_buscar_jugadores(request):
     } for j in jugadores[:10]]
     
     return JsonResponse({'jugadores': resultado})
+
+
+# =============================================================================
+# FUNCIONES AUXILIARES PARA CÁLCULO DE PUNTOS POR AÑO
+# =============================================================================
+
+def _calcular_puntos_anio(anio):
+    """Calcula la sumatoria de puntos de ranking por jugador para un año dado.
+    
+    Retorna un dict {jugador_id: puntos_totales} sumando puntos de:
+    - RankingImportado (resultados importados confirmados)
+    - ParejaTorneo (resultados manuales de torneos equilibrados)
+    """
+    puntos = {}
+
+    torneos_anio = Torneo.objects.filter(fecha__year=anio)
+
+    for torneo_obj in torneos_anio:
+        # Fuente 1: Resultados importados confirmados
+        try:
+            resultado = torneo_obj.resultado_importado
+            if resultado.confirmado:
+                for ri in resultado.rankings.all():
+                    pts = ri.puntos_asignados or 0
+                    if pts <= 0:
+                        continue
+                    for jugador in [ri.jugador1, ri.jugador2]:
+                        if jugador is not None:
+                            puntos[jugador.id] = puntos.get(jugador.id, 0) + pts
+                continue
+        except ResultadoImportado.DoesNotExist:
+            pass
+
+        # Fuente 2: Parejas manuales de torneos equilibrados
+        if torneo_obj.estado != 'equilibrado':
+            continue
+
+        for pareja in torneo_obj.parejas.all():
+            pts = pareja.puntos_ranking or 0
+            if pts <= 0:
+                continue
+            for jugador in [pareja.jugador1, pareja.jugador2]:
+                if jugador is not None:
+                    puntos[jugador.id] = puntos.get(jugador.id, 0) + pts
+
+    return puntos
 
 
 # =============================================================================

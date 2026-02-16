@@ -57,7 +57,7 @@
                     </a>
                     <a href="{% url 'jugadores' %}"
                        class="px-3 py-2 rounded-md text-sm font-medium transition
-                              {% if request.resolver_match.url_name == 'jugadores' or request.resolver_match.url_name == 'cargar_base' or request.resolver_match.url_name == 'cargar_base_confirmar' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
+                              {% if request.resolver_match.url_name == 'jugadores' or request.resolver_match.url_name == 'jugador_perfil' or request.resolver_match.url_name == 'cargar_base' or request.resolver_match.url_name == 'cargar_base_confirmar' %}bg-bridge-dark text-white{% else %}text-gray-200 hover:bg-bridge-light hover:text-white{% endif %}">
                         <i class="bi bi-people"></i> Jugadores
                     </a>
                     <a href="{% url 'torneos' %}"

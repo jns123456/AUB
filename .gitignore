@@ -20,6 +20,9 @@ db.sqlite3
 # Static files (production)
 staticfiles/
 
+# Media files (user uploads)
+media/
+
 # IDE
 .vscode/
 .idea/

@@ -322,9 +322,13 @@
             return seleccionados[suffix][pair === '1' ? '2' : '1'] || null;
         }
 
+        function showResults() { resultsDiv.style.display = 'block'; }
+        function hideResults() { resultsDiv.style.display = 'none'; resultsDiv.innerHTML = ''; }
+
         function buscarJugadores(query) {
-            if (query.trim().length < 1) { resultsDiv.innerHTML = ''; return; }
+            if (query.trim().length < 1) { hideResults(); return; }
             resultsDiv.innerHTML = '<div class="p-3 text-center text-gray-400 text-sm italic">Buscando...</div>';
+            showResults();
 
             const params = new URLSearchParams({ q: query.trim(), torneo_id: TORNEO_ID });
             const otherId = getOtherSelectedId();
@@ -336,6 +340,7 @@
                     const jugadores = data.jugadores || [];
                     if (jugadores.length === 0) {
                         resultsDiv.innerHTML = '<div class="p-3 text-center text-gray-400 text-sm italic">Sin resultados</div>';
+                        showResults();
                         return;
                     }
                     resultsDiv.innerHTML = jugadores.map(j =>
@@ -343,6 +348,7 @@
                         '<span class="font-medium text-sm">'+j.apellido+', '+j.nombre+'</span> ' +
                         '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-700 ml-1">HC: '+j.handicap+'</span></div>'
                     ).join('');
+                    showResults();
 
                     resultsDiv.querySelectorAll('.search-result-item').forEach(item => {
                         item.addEventListener('mousedown', function(e) {
@@ -353,11 +359,11 @@
                             input.style.display = 'none';
                             selectedName.textContent = this.dataset.apellido + ', ' + this.dataset.nombre + ' (HC: ' + this.dataset.handicap + ')';
                             selectedDiv.style.display = 'flex';
-                            resultsDiv.innerHTML = '';
+                            hideResults();
                         });
                     });
                 })
-                .catch(() => { resultsDiv.innerHTML = '<div class="p-3 text-center text-red-500 text-sm">Error en la búsqueda</div>'; });
+                .catch(() => { resultsDiv.innerHTML = '<div class="p-3 text-center text-red-500 text-sm">Error en la búsqueda</div>'; showResults(); });
         }
 
         input.addEventListener('input', function() {
@@ -365,7 +371,7 @@
             searchTimeout = setTimeout(() => buscarJugadores(this.value), 200);
         });
         input.addEventListener('focus', function() { if (this.value.trim()) buscarJugadores(this.value); });
-        input.addEventListener('blur', function() { setTimeout(() => { resultsDiv.innerHTML = ''; }, 250); });
+        input.addEventListener('blur', function() { setTimeout(() => { hideResults(); }, 250); });
 
         if (clearBtn) {
             clearBtn.addEventListener('click', function() {
